@@ -109,6 +109,8 @@ export interface Behaviour<V> {
   /** what `price` answers for any set of keys */
   price?: number;
   delayMs?: number;
+  /** when set, a call also waits for it to settle before it answers: a test decides when */
+  until?: Promise<unknown>;
   trackers?: readonly Inflight[];
   throws?: boolean;
   onLoad?: (keys: readonly string[]) => void;
@@ -158,7 +160,7 @@ export function fake<V>(is: Behaviour<V> = {}): Fake<V> {
       for (const t of trackers) t.enter();
       try {
         is.onLoad?.(keys);
-        await sleep(is.delayMs ?? 2);
+        await Promise.all([sleep(is.delayMs ?? 2), is.until]);
         if (is.throws) throw new Error("fake load failed");
         return envelope(is, refs);
       } finally {
