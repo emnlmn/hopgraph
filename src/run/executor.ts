@@ -21,7 +21,7 @@ import { Approvals, Gates } from "./gates.ts";
 import { healthOf } from "./health.ts";
 import { Hydration } from "./hydration.ts";
 import { keyDigest } from "./ids.ts";
-import type { Ledger } from "./ledger.ts";
+import { evaluated, type Ledger } from "./ledger.ts";
 import { Limits, runLimits } from "./limits.ts";
 import { type PlannedRoute, plan } from "./plan.ts";
 import { Providers } from "./providers.ts";
@@ -169,8 +169,8 @@ async function runSpanned<Meta, Ctx>(
   const relations = new Relations(ctx, hydration);
   const providers = new Providers(ctx, hydration);
   const ledger: Ledger = {
-    relation: (id, ref) => relations.result(id, ref) ?? unevaluated(),
-    provider: (id, ref) => providers.answer(id, ref) ?? unevaluated(),
+    relation: (id, ref) => evaluated(relations.result(id, ref)),
+    provider: (id, ref) => evaluated(providers.answer(id, ref)),
     hydration: (ref) => hydration.record(ref),
   };
 
@@ -295,10 +295,6 @@ function providerId(graph: GraphDef<unknown>, provider: ProviderRef): string {
       `provider "${provider.id}" was not declared on this graph`,
     );
   return provider.id;
-}
-
-function unevaluated(): never {
-  throw new HopgraphError("HG_INTERNAL", "a route walked a step the run did not evaluate");
 }
 
 /** A base row's ref, its key's id computed of the parsed key; an `id` that throws on it refuses the

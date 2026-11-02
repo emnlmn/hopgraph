@@ -2,7 +2,13 @@
 // what it said, the links a relation found, the rows a provider projected. Keys stay ids here; they
 // are shown, a personal one by its digest, only when a row result is built.
 
-import type { Attrs, Coverage, Cut, UnknownReason } from "../core/index.ts";
+import {
+  type Attrs,
+  type Coverage,
+  type Cut,
+  HopgraphError,
+  type UnknownReason,
+} from "../core/index.ts";
 import type { KeyAnswer } from "./envelope.ts";
 import type { RefId, RefNode } from "./refs.ts";
 import { absentTally, cutOff, foundTally, type Tally, unknownTally } from "./tally.ts";
@@ -102,4 +108,12 @@ export interface Ledger {
   provider(provider: string, ref: RefNode): ProviderAnswer;
   /** the hydration of the ref's key, when it was hydrated */
   hydration(ref: RefId): StepRecord | undefined;
+}
+
+/** A step's answer for the walk: the plan evaluates every step a route can walk, so a missing one
+ *  is the executor's bug, refused as such rather than walked as if nothing had been read. */
+export function evaluated<T>(answer: T | undefined): T {
+  if (answer === undefined)
+    throw new HopgraphError("HG_INTERNAL", "a route walked a step the run did not evaluate");
+  return answer;
 }
