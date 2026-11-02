@@ -35,6 +35,7 @@ import {
   type Attrs,
   CostChangedError,
   type EntityDef,
+  HopgraphError,
   type LoadError,
   type LoaderDef,
   type UnknownReason,
@@ -258,7 +259,7 @@ export class Reads {
     const answers = new Map<string, KeyAnswer>();
     const loaded = new Set<string>();
     for (const [refId, k] of keyOf) {
-      answers.set(refId, settled.get(k.id) ?? FAILED);
+      answers.set(refId, kept(settled.get(k.id), "a read was told before its keys were answered"));
       if (served.loaded.has(k.id)) loaded.add(refId);
     }
     return { answers, ...served, loaded };
@@ -291,7 +292,6 @@ export class Reads {
     stepNeeds: readonly string[],
     wave: number,
   ): void {
-    if (this.unread(loader)) return;
     const offers = this.offers.get(loader.id) ?? [];
     for (const ref of refs) {
       const { refs: store } = this.env;
@@ -402,7 +402,7 @@ export class Reads {
       if (!stopped && !this.schedule.clear(loader, job.wave)) continue;
       // a job that throws past its own catch is a bug of the run's: it fails the run, not the
       // process
-      this.run(job).catch(this.env.stop.halt.bind(this.env.stop));
+      this.run(job, queue).catch(this.env.stop.halt.bind(this.env.stop));
     }
     const failed = this.failed;
     if (failed && !stopped && this.quiet(failed.wave)) {
@@ -420,14 +420,15 @@ export class Reads {
     return !this.schedule.before(wave);
   }
 
-  /** One job: its keys, those the steps waiting for their inputs offer, fetched together. */
-  private async run(job: Job): Promise<void> {
+  /** One job, the first of its loader's `queue`: its keys, those the steps waiting for their
+   *  inputs offer, fetched together. */
+  private async run(job: Job, queue: Job[]): Promise<void> {
     const { loader, wave } = job;
     // once the run stopped, nothing starts: the keys are unknown, deadline, and no job ran
     if (this.env.stop.stopped()) {
       const settled = this.settledOf(loader.id);
       for (const id of job.keys.keys()) settled.set(id, DEADLINE);
-      this.done(job);
+      this.done(job, queue);
       return;
     }
     // what a call of the job throws that fails the run stops the wave's loads at once (calls.ts)
@@ -449,6 +450,9 @@ export class Reads {
     this.started += 1;
     this.latest = Math.max(this.latest, wave);
     const step = [...steps].sort();
+    // a job starts with keys (start), and each was put there by a read that asks it (ask)
+    const payer = kept([...asking].sort(byStep)[0], "a job started that no read asks");
+    const by = `${kept(step[0], "a job started for no step")}␟${loader.id}`;
     let thrown: { readonly error: unknown } | undefined;
     // every attribute a job's span ends with is there from the start, at 0 when nothing came to it
     const span = this.env.tracer.startSpan(
@@ -465,9 +469,8 @@ export class Reads {
     );
     try {
       const keys = [...job.keys.values()];
+      // whatever stopped the job, each of its keys has an answer (Jobs.run)
       const done = await this.jobs.run(loader, wave, keys, step.join(" + "), settled, stops, span);
-      // whatever stopped the job, each of its keys has an answer
-      for (const k of keys) if (!settled.has(k.id)) settled.set(k.id, FAILED);
       // a key loaded is loaded for the step with the smallest id that asked for it
       const owner = new Map<string, string>();
       for (const r of asking)
@@ -480,38 +483,37 @@ export class Reads {
         r.loaded = new Set(
           r.keys.filter((k) => owner.get(k.id) === r.step && !done.hits.has(k.id)).map((k) => k.id),
         );
-      const payer = [...asking].sort(byStep)[0];
-      if (payer) payer.paid = done;
+      payer.paid = done;
       outcomes(span, keys, settled);
       span.setAttribute("hopgraph.billed_bytes", done.billed);
       span.setAttribute("hopgraph.retries", done.retries);
     } catch (error) {
       // the run fails, once the waves before this one are done (the header); meanwhile the steps
       // waiting for these keys go on with them failed
-      this.fail(wave, { error, by: `${step[0] ?? ""}␟${loader.id}` });
+      this.fail(wave, { error, by });
       thrown = { error };
     } finally {
       // the reads waiting for these keys go on before anything is told to the span, whatever
       // telling it does
-      this.done(job);
+      this.done(job, queue);
       if (thrown) span.recordError(described(thrown.error));
       span.end();
     }
   }
 
   /** The job is over: the reads waiting only for its keys get their answers, in an order the
-   *  inputs decide. */
-  private done(job: Job): void {
+   *  inputs decide. It leaves `queue`, whose first it still is: nothing goes before a job that
+   *  started (jobOf, start). */
+  private done(job: Job, queue: Job[]): void {
     const loader = job.loader.id;
-    const queue = this.queues.get(loader) ?? [];
-    const at = queue.indexOf(job);
-    if (at >= 0) queue.splice(at, 1);
+    queue.shift();
     const settled = this.settledOf(loader);
     const claims = this.claimsOf(loader);
     const waiters = this.waitersOf(loader);
     const finished = new Set<Request>();
     for (const id of job.keys.keys()) {
-      if (claims.get(id) === job) claims.delete(id);
+      // a key moves to another job only out of the one that had it (ask, run)
+      claims.delete(id);
       if (!settled.has(id)) settled.set(id, FAILED);
       for (const r of waiters.get(id) ?? []) {
         r.outstanding -= 1;
@@ -680,7 +682,8 @@ function byStep(a: Request, b: Request): number {
 /** What a job's keys came to, on its span. */
 function outcomes(span: Span, keys: readonly LoaderKey[], settled: ReadonlyMap<string, KeyAnswer>) {
   const count = { found: 0, absent: 0, unknown: 0 };
-  for (const k of keys) count[settled.get(k.id)?.kind ?? "unknown"] += 1;
+  for (const k of keys)
+    count[kept(settled.get(k.id), "a job ended with a key unanswered").kind] += 1;
   span.setAttribute("hopgraph.found", count.found);
   span.setAttribute("hopgraph.absent", count.absent);
   span.setAttribute("hopgraph.unknown", count.unknown);
@@ -698,4 +701,11 @@ function afterMicrotasks(next: () => void): void {
 
 function everyRef(refs: readonly RefNode[], answer: KeyAnswer): ReadResult {
   return { answers: new Map(refs.map((ref) => [ref.id, answer])), ...NOTHING };
+}
+
+/** What the reads' own bookkeeping guarantees is there: a missing one is the executor's bug,
+ *  refused as such rather than read as nothing. */
+export function kept<T>(value: T | undefined, bug: string): T {
+  if (value === undefined) throw new HopgraphError("HG_INTERNAL", bug);
+  return value;
 }
