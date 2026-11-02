@@ -661,4 +661,17 @@ describe("run: a graph built without the builder", () => {
   it("a route that ends short of the provider's entity is refused before reading anything", async () => {
     expect(await refusal(["track › master:mastered"])).toEqual({ code: "HG_PATH", reads: [] });
   });
+
+  it("a step whose loader the graph does not hold is refused before reading anything", async () => {
+    const { graph, f } = build();
+    const loaders = new Map(graph.loaders);
+    loaders.delete("studioInfo");
+    const error = await run(
+      { ...graph, loaders },
+      options({ refs: refs("track", "t1"), providers: ["studioInfo"] }),
+    ).catch((e: unknown) => e);
+
+    expect(error).toMatchObject({ code: "HG_FOREIGN" });
+    expect(Object.values(f).flatMap((x) => x.calls)).toEqual([]);
+  });
 });
