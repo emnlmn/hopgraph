@@ -53,8 +53,11 @@ export type Call<T> =
   /** a metered job whose calls billed its whole budget: this one was not made */
   | { readonly kind: "spent" };
 
-export interface Tried<T> {
-  readonly call: Call<T>;
+/** How a call that was made ended: a dry run, or a load its budget left room for. */
+export type Made<T> = Exclude<Call<T>, { readonly kind: "spent" }>;
+
+export interface Tried<T, C extends Call<T> = Call<T>> {
+  readonly call: C;
   /** attempts that answered or threw */
   readonly attempts: number;
   /** attempts after the first that answered or threw */
@@ -145,7 +148,7 @@ export class Calls {
     connectors: readonly string[],
     stop: Stop,
     span: Span,
-  ): Promise<Tried<number>> {
+  ): Promise<Tried<number, Made<number>>> {
     const ctx = ctxFor(this.env.ctx, loader.ctxKeys);
     const attempt = async (): Promise<Attempt<number>> => {
       if (stop.stopped()) return LATE;
@@ -172,14 +175,14 @@ export class Calls {
     stop: Stop,
     span: Span,
     more: () => boolean = () => true,
-  ): Promise<Tried<T>> {
+  ): Promise<Tried<T, Made<T>>> {
     const { health } = this.env;
     const policy = loader.retry;
     let billed = 0;
     let attempts = 0;
     let retries = 0;
     let failed: { readonly error: unknown } | undefined;
-    const threw = (error: unknown): Tried<T> => ({
+    const threw = (error: unknown): Tried<T, Made<T>> => ({
       call: { kind: "threw", error: failure(error, keys) },
       attempts,
       retries,
