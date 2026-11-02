@@ -323,9 +323,9 @@ a provider asked by an id the compiler cannot know (`string`, a field picker's) 
 every case the run refuses what slipped through (`HG_NO_ROUTE`) before it reads anything.
 
 `g.ref(entity, key, carries?, row?)` makes a base row for `run` the way `read` takes a key: the key
-typed by the entity's key schema, every context attribute required, and the entity's name kept, so
-that rows built at run time are checked against the routes all the same. Its row id is the key's
-id (the entity's `id(key)`) unless given.
+typed by what the entity's key schema accepts, every context attribute required, and the entity's
+name kept, so that rows built at run time are checked against the routes all the same. Its row id
+is the key's id (the entity's `id(key)`, of the key as its schema parses it) unless given.
 
 ```ts
 const refs = trackIds.map((id) => g.ref("track", id));
@@ -456,15 +456,17 @@ Web Crypto's `crypto.subtle.sign`, does not fit it.
 
 `runner.read(entity, keys, providers, call)` reads providers for keys of one entity: one base row
 per key, each under its key's id in `rows` (the key for a string, `String(key)` for a number, the
-entity's `id(key)` otherwise).
+entity's `id(key)` otherwise), of the key as the run parsed it: with a key schema that turns `"07"`
+into 7, the row is `"7"`.
 
 ```ts
 const result = await runner.read("track", ["t1", "t2"], [summary], { ctx });
 result.rows.get("t1")?.providers.trackSummary.rows[0]?.fields.plays; // number
 ```
 
-- `entity` is one of the graph's, and the keys are typed by its key schema: a key of another type
-  does not compile. One key, or a list; a key that is itself an array (a tuple) is given in a list.
+- `entity` is one of the graph's, and the keys are typed by what its key schema accepts: a key of
+  another type does not compile. One key, or a list; a key that is itself an array (a tuple) is
+  given in a list.
 - An entity with `context` attributes, which only a base row or a link brings, takes each key with
   them, `{ key, carries }`, and the call does not compile without every one:
   `read("session", [{ key: "s1", carries: { day: "2026-11-01" } }], [plays], { ctx })`. An entity

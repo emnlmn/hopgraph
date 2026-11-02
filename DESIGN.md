@@ -732,11 +732,13 @@ is the one choice that depends on the source.
 
 **A read by entity.** Most calls ask for the providers of rows that are keys of one entity, each
 row's id its key. `read(entity, keys, providers, call)` makes those base rows and gives each back
-under its key's id (the entity's `id(key)`, `String` unless declared), so the caller looks a row up
+under its key's id (the entity's `id(key)` of the key as its schema parsed it, `String` unless
+declared), so the caller looks a row up
 by what it has in hand. The result is `run`'s, unwrapped by nothing: an unknown is an outcome, never
 a throw. Inside the run each row is named by its place (`keys[2]`), so a `ValidationError` for a key
-that fails its schema names its place, never the key (§5.4). The keys are typed by the entity's key
-schema, one or a list; a key that may be an array is given in a list, so that one key is never
+that fails its schema, or whose id cannot be computed, names its place, never the key (§5.4). The
+keys are typed by what the entity's key schema accepts (its input type; its parsed type when it
+says it accepts `unknown`, as a `Schema<T>` does), one or a list; a key that may be an array is given in a list, so that one key is never
 read as several, and a name that may be one of several entities takes no key, its key type not
 being one. One key given twice with different carried attributes would be two refs, both read, and
 one row under one id: the read refuses it before reading anything (`HG_DUPLICATE`, naming the two
@@ -854,7 +856,7 @@ export const contact = g.relation("track", "email", "contact", {
    name. A runner's `run` and `read` type their results the same way.
 10. A run's `ctx` is the graph's `Ctx`, which `g.graph()` carries in its type; it may be left out
     only when `Ctx` admits `undefined`.
-11. A read names an entity of the graph and takes keys of its key schema; an entity with `context`
+11. A read names an entity of the graph and takes keys its key schema accepts; an entity with `context`
     attributes takes `{ key, carries }` with every one of them, typed by their schemas (§5.9).
 12. A provider asked by a run, a runner's run or a read has a route from the entity of every base
     row, as the graph's routes say (§4). The message names both: `provider "trackStreams" has no
