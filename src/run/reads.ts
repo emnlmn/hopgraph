@@ -405,10 +405,8 @@ export class Reads {
       this.run(job, queue).catch(this.env.stop.halt.bind(this.env.stop));
     }
     const failed = this.failed;
-    if (failed && !stopped && this.quiet(failed.wave)) {
-      const failure = this.failure();
-      if (failure) this.env.stop.halt(failure.error);
-    }
+    if (failed && !stopped && this.quiet(failed.wave))
+      this.env.stop.halt(failureError(this.failure()));
   }
 
   /** Whether nothing more of `wave` or before can happen: no job of those waves left, no work
@@ -708,4 +706,12 @@ function everyRef(refs: readonly RefNode[], answer: KeyAnswer): ReadResult {
 export function kept<T>(value: T | undefined, bug: string): T {
   if (value === undefined) throw new HopgraphError("HG_INTERNAL", bug);
   return value;
+}
+
+/** What a quiet failed wave fails the run with. Every job of that wave recorded what it threw before
+ *  it left its queue, so a failure is always there; a missing one is the run's bug. */
+export function failureError(failure: { readonly error: unknown } | undefined): unknown {
+  if (failure === undefined)
+    throw new HopgraphError("HG_INTERNAL", "a failed wave went quiet with nothing to fail with");
+  return failure.error;
 }
