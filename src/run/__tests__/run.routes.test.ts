@@ -626,3 +626,52 @@ describe("run: routes the compiler knows", () => {
     >();
   });
 });
+
+describe("run: a graph built without the builder", () => {
+  /** The built graph with its studioInfo route from track replaced by one through `relations`. */
+  async function refusal(relations: readonly string[]) {
+    const { graph, f } = build();
+    const def: GraphDef<Meta> = {
+      ...graph,
+      routes: graph.routes.map((r) =>
+        r.base === "track" && r.provider === "studioInfo"
+          ? { ...r, how: { kind: "path", from: "track", to: "studio", relations } }
+          : r,
+      ),
+    };
+    const error = await run(
+      def,
+      options({ refs: refs("track", "t1"), providers: ["studioInfo"] }),
+    ).catch((e: unknown) => e);
+    const reads = Object.values(f).flatMap((x) => x.calls);
+    return { code: (error as { code?: string }).code, reads };
+  }
+
+  it("a route through a relation that is not declared is refused before reading anything", async () => {
+    expect(await refusal(["track › master:mastered", "track › master:nowhere"])).toEqual({
+      code: "HG_UNKNOWN_RELATION",
+      reads: [],
+    });
+  });
+
+  it("a route whose relations do not chain is refused before reading anything", async () => {
+    expect(await refusal(["master › studio:masteredAt"])).toEqual({ code: "HG_PATH", reads: [] });
+  });
+
+  it("a route that ends short of the provider's entity is refused before reading anything", async () => {
+    expect(await refusal(["track › master:mastered"])).toEqual({ code: "HG_PATH", reads: [] });
+  });
+
+  it("a step whose loader the graph does not hold is refused before reading anything", async () => {
+    const { graph, f } = build();
+    const loaders = new Map(graph.loaders);
+    loaders.delete("studioInfo");
+    const error = await run(
+      { ...graph, loaders },
+      options({ refs: refs("track", "t1"), providers: ["studioInfo"] }),
+    ).catch((e: unknown) => e);
+
+    expect(error).toMatchObject({ code: "HG_FOREIGN" });
+    expect(Object.values(f).flatMap((x) => x.calls)).toEqual([]);
+  });
+});

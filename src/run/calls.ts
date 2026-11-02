@@ -19,7 +19,6 @@ import {
   type Budget,
   CostChangedError,
   type Envelope,
-  HopgraphError,
   type LoadError,
   type LoaderDef,
   type Ref,
@@ -39,6 +38,9 @@ export interface CallEnv {
   /** errors of a load or a price worth trying again (types.ts) */
   readonly retryable: (error: unknown) => boolean;
 }
+
+/** A metered loader's dry run. */
+export type Price = NonNullable<LoaderDef["price"]>;
 
 /** How a call ended, after every attempt it was given. */
 export type Call<T> =
@@ -133,17 +135,17 @@ export class Calls {
     return this.tried(loader, refs.length, connectors, attempt, stop, span, () => !purse?.empty());
   }
 
-  /** A dry run of `refs`: the bytes loading them would bill. It holds no slot and takes no token,
-   *  but goes through the circuits of `connectors`: an open source is not called at all. */
+  /** A dry run of `refs` by the loader's `price`: the bytes loading them would bill. It holds no
+   *  slot and takes no token, but goes through the circuits of `connectors`: an open source is not
+   *  called at all. */
   price(
     loader: LoaderDef,
+    price: Price,
     refs: readonly Ref<unknown, Attrs>[],
     connectors: readonly string[],
     stop: Stop,
     span: Span,
   ): Promise<Tried<number>> {
-    const { price } = loader;
-    if (!price) throw new HopgraphError("HG_INTERNAL", `loader "${loader.id}" has no price`);
     const ctx = ctxFor(this.env.ctx, loader.ctxKeys);
     const attempt = async (): Promise<Attempt<number>> => {
       if (stop.stopped()) return LATE;

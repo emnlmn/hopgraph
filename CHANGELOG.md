@@ -15,6 +15,9 @@ README, says which changes each kind of release may bring.
   rejects the read with a `ValidationError` naming the row by its place. `read` and `g.ref` take
   what the key's schema accepts (its input type, `KeyInputOf`); loads, links and results still see
   what it parses to.
+- A run of a graph built by hand whose relation, provider or hydrator names a loader the graph
+  does not hold rejects with a `DefinitionError` (`HG_FOREIGN`) before it reads anything, instead
+  of an internal error (`HG_INTERNAL`).
 
 ## [0.1.0] - 2026-11-02
 

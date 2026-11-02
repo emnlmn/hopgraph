@@ -1,7 +1,7 @@
 // What every step evaluator (hydration, relations, providers) works with, and what they all do:
 // find a loader, read it with a stopwatch, take one ref's answer out of a read.
 
-import { type GraphDef, HopgraphError, type LoaderDef } from "../core/index.ts";
+import { DefinitionError, type GraphDef, HopgraphError, type LoaderDef } from "../core/index.ts";
 import type { KeyAnswer } from "./envelope.ts";
 import type { ReadResult, Reads } from "./reads.ts";
 import type { RefNode, RefStore } from "./refs.ts";
@@ -22,9 +22,11 @@ export interface StepContext {
   readonly validate: Validation;
 }
 
+/** The graph's loader of an id; one a graph built by hand names but does not hold is refused. */
 export function loaderOf(graph: GraphDef<unknown>, id: string): LoaderDef {
   const loader = graph.loaders.get(id);
-  if (!loader) throw new HopgraphError("HG_INTERNAL", `loader "${id}" is not declared`);
+  if (!loader)
+    throw new DefinitionError("HG_FOREIGN", `loader "${id}" was not declared on this graph`);
   return loader;
 }
 

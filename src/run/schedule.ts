@@ -134,9 +134,12 @@ function readsOf(graph: GraphDef<unknown>, work: Work): string[] {
   }
 }
 
-/** The hydrator a step of `entity` reading `needs` may read: none when every need is context. */
+/** The loader of the hydrator a step of `entity` reading `needs` may read: none when every need
+ *  is context. */
 function hydratorOf(graph: GraphDef<unknown>, entity: string, needs: readonly string[]): string[] {
   const hydrator = graph.hydrators.get(entity);
   const context = graph.entities[entity]?.context ?? [];
-  return hydrator && needs.some((need) => !context.includes(need)) ? [hydrator.loader] : [];
+  return hydrator && needs.some((need) => !context.includes(need))
+    ? [loaderOf(graph, hydrator.loader).id]
+    : [];
 }

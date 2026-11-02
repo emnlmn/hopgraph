@@ -8,15 +8,7 @@
 // through them. A relation is evaluated once per ref per run, refs of one key that agree on what
 // the relation reads being one.
 
-import {
-  type Attrs,
-  type Cut,
-  HopgraphError,
-  type LinkOut,
-  type RelationDef,
-  type StrategyDef,
-  type Verdict,
-} from "../core/index.ts";
+import type { Attrs, Cut, LinkOut, RelationDef, StrategyDef, Verdict } from "../core/index.ts";
 import { capped, notRead, tighter, withinRefs } from "./caps.ts";
 import type { KeyAnswer } from "./envelope.ts";
 import type { Hydration } from "./hydration.ts";
@@ -63,8 +55,8 @@ interface Projected {
 interface Draft {
   readonly strategy: StrategyDef;
   readonly loader: string;
-  /** by ref id */
-  readonly byRef: ReadonlyMap<string, Projected>;
+  /** each ref it was run on, with what it said of it */
+  readonly answers: readonly (readonly [RefNode, Projected])[];
 }
 
 /** One strategy's answer for one ref, verification included. */
@@ -83,6 +75,9 @@ interface Check {
   /** its target was past a cap and not read: the candidate is dropped, and the ref is cut */
   readonly cut?: Cut;
 }
+
+/** What a verification says of a candidate. */
+type Judge = (candidate: Candidate) => Check;
 
 const AMBIGUOUS = { reason: "ambiguous" } as const;
 
@@ -191,11 +186,16 @@ export class Relations extends Memoized<RelationResult> {
       }),
     );
     lane.join(lanes);
-    const candidates = drafts.flatMap((d) => [...d.byRef.values()].flatMap((p) => p.candidates));
-    const checks = await this.verify(lane, relation, candidates);
-    return new Map(
-      refs.map((ref) => [ref.id, drafts.map((d) => finish(relation.id, d, ref, checks))]),
-    );
+    const candidates = drafts.flatMap((d) => d.answers.flatMap(([, p]) => p.candidates));
+    const judge = await this.verify(lane, relation, candidates);
+    // per ref, an answer per strategy, in the strategies' order
+    const answered = new Map<string, Answered[]>();
+    for (const draft of drafts)
+      for (const [ref, projected] of draft.answers) {
+        const answer = finish(relation.id, draft, ref, projected, judge);
+        answered.set(ref.id, [...(answered.get(ref.id) ?? []), answer]);
+      }
+    return answered;
   }
 
   /** One strategy on the refs: hydrated for its needs, read, projected. */
@@ -210,22 +210,22 @@ export class Relations extends Memoized<RelationResult> {
     const { ready, refused } = await this.hydration.prepare(lane, relation.from, refs, needs);
     const read = await timedRead(this.ctx, lane, relation.id, loader, ready, needs);
     // a validator may be asynchronous: until the links are checked, they may still be read
-    const projected = await this.ctx.reads.busy(
+    const answers = await this.ctx.reads.busy(
       lane,
       Promise.all(
-        refs.map((ref) => {
+        refs.map(async (ref): Promise<readonly [RefNode, Projected]> => {
           const refusal = refused.get(ref.id);
-          return refusal
+          const projected = refusal
             ? { said: refusal, candidates: [] }
-            : this.project(relation, strategy, ref, answerOf(read, ref), needs);
+            : await this.project(relation, strategy, ref, answerOf(read, ref), needs);
+          return [ref, projected];
         }),
       ),
     );
-    const byRef = new Map(refs.map((ref, i) => [ref.id, projected[i] ?? INVALID]));
-    const said = [...byRef.values()].map((p) => p.said);
-    const invalid = projected.filter((p) => p === INVALID).length;
+    const said = answers.map(([, p]) => p.said);
+    const invalid = answers.filter(([, p]) => p === INVALID).length;
     this.ctx.trace.record(relation.id, loader.id, statsOf(refs.length, read, invalid), said);
-    return { strategy, loader: loader.id, byRef };
+    return { strategy, loader: loader.id, answers };
   }
 
   /** What a strategy says of a ref from the loader's answer: its links, checked against their
@@ -269,16 +269,15 @@ export class Relations extends Memoized<RelationResult> {
     return { said, candidates, links: candidates.length };
   }
 
-  /** Reads every candidate target once; the rule judges the candidates of each ref together. */
+  /** Reads every candidate target once; the rule judges the candidates of each ref together.
+   *  Nothing to judge when the relation verifies nothing or found no candidate. */
   private async verify(
     lane: Lane,
     relation: RelationDef,
     candidates: readonly Candidate[],
-  ): Promise<ReadonlyMap<Candidate, Check> | undefined> {
+  ): Promise<Judge | undefined> {
     const verification = relation.verify;
-    if (!verification) return undefined;
-    const checks = new Map<Candidate, Check>();
-    if (candidates.length === 0) return checks;
+    if (!verification || candidates.length === 0) return undefined;
     const step = `verify:${relation.id}`;
     const loader = loaderOf(this.ctx.graph, verification.loader);
     // targets past the run's cap are not read: their candidates are dropped, cut
@@ -303,14 +302,12 @@ export class Relations extends Memoized<RelationResult> {
     const said = targets.map((t) => seen(t).said);
     this.ctx.trace.record(step, loader.id, statsOf(targets.length, read), said);
 
-    for (const candidate of candidates) {
-      const skip = skipped.get(candidate.link.to.id);
-      if (skip) checks.set(candidate, { verdict: "drop", record: skip.record, cut: skip.cut });
-    }
+    // what the rule said of the candidates it was shown
+    const verdicts = new Map<Candidate, Verdict>();
     const judged = candidates.filter((c) => !skipped.has(c.link.to.id));
     for (const siblings of groupBy(judged, (c) => c.link.from.id)) {
       const targetsSeen = siblings.map((c) => seen(c.link.to));
-      const verdicts = verification.decide(
+      const given = verification.decide(
         siblings.map((c, i) => ({
           link: c.out,
           state: targetsSeen[i]?.said.outcome ?? "unknown",
@@ -318,13 +315,19 @@ export class Relations extends Memoized<RelationResult> {
         })),
       );
       siblings.forEach((candidate, i) => {
-        const verdict = verdicts[i] ?? "undecided";
-        const target = targetsSeen[i]?.said ?? say.unknown(AMBIGUOUS);
-        const record = recordOf(step, loader.id, candidate.link.to, verdictSaid(verdict, target));
-        checks.set(candidate, { verdict, record });
+        const verdict = given[i];
+        if (verdict !== undefined) verdicts.set(candidate, verdict);
       });
     }
-    return checks;
+    return (candidate) => {
+      const target = candidate.link.to;
+      const skip = skipped.get(target.id);
+      if (skip) return { verdict: "drop", record: skip.record, cut: skip.cut };
+      // a candidate the rule gave no verdict (it answered short) stays, undecided
+      const verdict = verdicts.get(candidate) ?? "undecided";
+      const record = recordOf(step, loader.id, target, verdictSaid(verdict, seen(target).said));
+      return { verdict, record };
+    };
   }
 }
 
@@ -365,23 +368,19 @@ function finish(
   step: string,
   draft: Draft,
   ref: RefNode,
-  checks: ReadonlyMap<Candidate, Check> | undefined,
+  projected: Projected,
+  judge: Judge | undefined,
 ): Answered {
-  const projected = draft.byRef.get(ref.id);
-  if (!projected)
-    throw new HopgraphError("HG_INTERNAL", "a strategy left one of its refs unanswered");
   const { said, candidates } = projected;
   const record = recordOf(step, draft.loader, ref, said, projected.links);
-  if (!checks || said.outcome !== "found")
+  if (!judge || said.outcome !== "found")
     return { record, links: candidates.map((c) => c.link), tally: tallyOf(said), checks: [] };
 
   const kept: Link[] = [];
   const records: StepRecord[] = [];
   const cuts: Cut[] = [];
   for (const candidate of candidates) {
-    const check = checks.get(candidate);
-    if (!check)
-      throw new HopgraphError("HG_INTERNAL", "a verification left one of its candidates unjudged");
+    const check = judge(candidate);
     records.push(check.record);
     if (check.cut) cuts.push(check.cut);
     if (check.verdict === "keep") kept.push(candidate.link);

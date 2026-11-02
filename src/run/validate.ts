@@ -19,6 +19,7 @@ import {
   type Schema,
   ValidationError,
 } from "../core/index.ts";
+import { entityOf } from "./refs.ts";
 import type { BaseRef } from "./types.ts";
 
 type Out = LinkOut<unknown, Attrs, Attrs>;
@@ -70,9 +71,7 @@ export async function validBase(
 ): Promise<BaseRef[]> {
   const checked = await Promise.all(
     rows.map(async (row) => {
-      const entity = Object.hasOwn(entities, row.entity) ? entities[row.entity] : undefined;
-      // the plan refused an unknown entity before
-      if (!entity) return { row, invalid: [] };
+      const entity = entityOf(entities, row.entity);
       const [key, attrs] = await Promise.all([
         parse(entity.key, row.key),
         carried(entity, row.carries ?? {}),

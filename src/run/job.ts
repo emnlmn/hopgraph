@@ -15,13 +15,12 @@ import {
   type Budget,
   CostChangedError,
   type EntityDef,
-  HopgraphError,
   type LoadError,
   type LoaderDef,
   type LoaderMerge,
   type Ref,
 } from "../core/index.ts";
-import { billOf, type Calls, Purse, type Tried } from "./calls.ts";
+import { billOf, type Calls, type Price, Purse, type Tried } from "./calls.ts";
 import {
   answersOf,
   audit,
@@ -34,7 +33,7 @@ import {
 import type { Flights } from "./flights.ts";
 import { type Approvals, decide, type Gates } from "./gates.ts";
 import { gateId, keyToken } from "./ids.ts";
-import type { RefNode, Show } from "./refs.ts";
+import { entityOf, type RefNode, type Show } from "./refs.ts";
 import type { Stop, Within } from "./stop.ts";
 import type { CachedAnswer, CachePort, Span, Tracer } from "./types.ts";
 
@@ -337,7 +336,8 @@ export class Jobs {
     span: Span,
   ): Promise<Admission> {
     const caps = loader.cost?.metered;
-    if (!caps || !loader.price)
+    const { price } = loader;
+    if (!caps || !price)
       return { kind: "run", how: "free", budget: { maxBytes: undefined }, retries: 0 };
     const keys = layers.flat();
     const { restriction } = this.env;
@@ -361,7 +361,7 @@ export class Jobs {
       retries,
     });
     for (const layer of known === undefined ? layers : []) {
-      const pricing = await this.price(loader, layer, stop, span);
+      const pricing = await this.price(loader, price, layer, stop, span);
       retries += pricing.retries;
       const { call } = pricing;
       // a dry run the run stopped waiting for prices nothing: no load starts any more
@@ -411,6 +411,7 @@ export class Jobs {
   /** One dry run, under its own span. */
   private async price(
     loader: LoaderDef,
+    price: Price,
     layer: readonly LoaderKey[],
     stop: Stop,
     span: Span,
@@ -422,7 +423,14 @@ export class Jobs {
     );
     try {
       const views = layer.map((k) => k.view);
-      const pricing = await this.env.calls.price(loader, views, this.env.held(loader), stop, dry);
+      const pricing = await this.env.calls.price(
+        loader,
+        price,
+        views,
+        this.env.held(loader),
+        stop,
+        dry,
+      );
       const { call } = pricing;
       ended(dry, call.kind, pricing.attempts);
       if (call.kind === "threw") dry.recordError(call.error);
@@ -488,7 +496,7 @@ export class Jobs {
       const byKeyId = new Map(batch.map((k) => [k.ref.keyId, k]));
       const asked = [...byKeyId.keys()];
       const envelope = call.kind === "done" ? call.value : undefined;
-      const idOf = this.idOf(loader);
+      const idOf = entityOf(this.env.entities, loader.keyedBy).id;
       const answers =
         call.kind === "late"
           ? new Map(asked.map((keyId) => [keyId, DEADLINE]))
@@ -547,13 +555,6 @@ export class Jobs {
     } finally {
       write.end();
     }
-  }
-
-  private idOf(loader: LoaderDef): (key: unknown) => string {
-    const entity = this.env.entities[loader.keyedBy];
-    if (!entity)
-      throw new HopgraphError("HG_INTERNAL", `loader "${loader.id}" is keyed by an unknown entity`);
-    return entity.id;
   }
 }
 

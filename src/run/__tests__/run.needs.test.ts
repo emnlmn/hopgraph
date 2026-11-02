@@ -428,6 +428,22 @@ describe("run: needs and hydration", () => {
   });
 });
 
+describe("run: a hydrator of a graph built by hand", () => {
+  it("whose loader the graph does not hold is refused before reading anything", async () => {
+    const { graph, f } = build();
+    const loaders = new Map(graph.loaders);
+    loaders.delete("trackHeader");
+    // the artist's tracks are read before one of them is hydrated
+    const error = await run(
+      { ...graph, loaders },
+      options({ refs: refs("artist", "a2"), providers: ["masterInfo"] }),
+    ).catch((e: unknown) => e);
+
+    expect(error).toMatchObject({ code: "HG_FOREIGN" });
+    expect(Object.values(f).flatMap((x) => x.calls)).toEqual([]);
+  });
+});
+
 describe("run: need precedence and need values", () => {
   it("precedence: a need the base row carries beats the hydrator, which still gives the need it lacks", async () => {
     const { graph, f } = build();

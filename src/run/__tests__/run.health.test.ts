@@ -316,6 +316,31 @@ describe("run: circuit breakers, edges", () => {
       { reason: { reason: "failed", why: "open", connectors: ["wh"] } },
     ]);
   });
+
+  it("a call refused by one open circuit gives back the probe another half-open circuit let through", async () => {
+    const health = createHealth({ wh: BREAKER, db: BREAKER });
+    const db = build({ connectors: ["db"] });
+    db.source.down = true;
+    await settle(db.ask(health, ["m1", "m2"]));
+    vi.advanceTimersByTime(5_000);
+    const wh = build();
+    wh.source.down = true;
+    await settle(wh.ask(health, ["m3", "m4"]));
+    expect([health.state("db"), health.state("wh")]).toEqual(["half-open", "open"]);
+
+    const both = build({ connectors: ["db", "wh"] });
+    const refused = await settle(both.ask(health, ["m5"]));
+    expect(both.started).toEqual([]);
+    expect(stepsOf(refused, "m5", "provider:minutes")).toMatchObject([
+      { reason: { reason: "failed", why: "open", connectors: ["wh"] } },
+    ]);
+
+    // db's probe was not spent on the refused call: the next call on db alone is it
+    db.source.down = false;
+    const probed = await settle(db.ask(health, ["m6"]));
+    expect(stepsOf(probed, "m6", "provider:minutes")).toMatchObject([{ outcome: "found" }]);
+    expect(health.state("db")).toBe("closed");
+  });
 });
 
 describe("run: rate limits", () => {

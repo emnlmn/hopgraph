@@ -476,6 +476,28 @@ describe("run: errors that reject the run", () => {
     expect(traceOf(result, featured.id).errors).toEqual([{ code: "QuotaError", keys: 1 }]);
     expect(providerOf(result, "t1", "scans").outcome).toBe("found");
   });
+
+  it.each([
+    ["not a number", Number.NaN],
+    ["infinite", Number.POSITIVE_INFINITY],
+    ["negative", -1],
+  ])(
+    "a dry run that answers a price %s fails the keys it priced, unloaded and unbilled; the run answers",
+    async (_, price) => {
+      const { graph, f, featured } = failing({ price: () => price });
+      const result = await run(
+        graph,
+        options({ refs: refs("track", "t1"), providers: ["profile", "scans"] }),
+      );
+
+      expect(f.guests.calls).toEqual([]);
+      expect(result.gates).toEqual([]);
+      expect(result.billedBytes).toBe(0);
+      expect(providerOf(result, "t1", "profile").unknown).toEqual([{ reason: "failed" }]);
+      expect(traceOf(result, featured.id).errors).toEqual([]);
+      expect(providerOf(result, "t1", "scans").outcome).toBe("found");
+    },
+  );
 });
 
 /**

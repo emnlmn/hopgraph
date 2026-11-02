@@ -20,7 +20,10 @@ const RELEASED: Readonly<Record<string, string>> = {
   a3: "2026-03-03",
 };
 
-function build(opts: { readonly cut?: boolean } = {}) {
+/** `answers`: the merged read is found (the default), absent, or its call throws. */
+function build(
+  opts: { readonly cut?: boolean; readonly answers?: "found" | "absent" | "throws" } = {},
+) {
   const calls: { key: string; releasedAt: string }[][] = [];
   const priced: { key: string; releasedAt: string }[][] = [];
   const g = newGraph();
@@ -50,6 +53,8 @@ function build(opts: { readonly cut?: boolean } = {}) {
     },
     load: async (rs): Promise<Envelope<string, Masters>> => {
       calls.push(rs.map((r) => ({ key: r.key, releasedAt: r.releasedAt })));
+      if (opts.answers === "throws") throw new Error("warehouse down");
+      if (opts.answers === "absent") return envelope(rs.map((r) => [r.key, { kind: "absent" }]));
       return envelope(
         rs.map((r): readonly [string, Answer<Masters>] => [
           r.key,
@@ -125,4 +130,24 @@ describe("run: merged reads", () => {
     expect(a2.rows).toEqual([]);
     expect(a2.cut).toEqual([{ kind: "cap", limit: 2 }]);
   });
+
+  it.each([
+    ["absent", "absent", []],
+    ["throws", "unknown", [{ reason: "failed" }]],
+  ] as const)(
+    "a merged read that is %s leaves every ref %s, each as it is",
+    async (answers, outcome, unknown) => {
+      const { graph, calls } = build({ answers });
+      const result = await run(
+        graph,
+        options({ refs: refs("artist", "a1", "a2"), providers: ["trackMasters"] }),
+      );
+
+      expect(calls).toHaveLength(1);
+      for (const row of ["a1", "a2"]) {
+        const p = providerOf(result, row, "trackMasters");
+        expect([p.outcome, p.rows, p.unknown]).toEqual([outcome, [], unknown]);
+      }
+    },
+  );
 });
