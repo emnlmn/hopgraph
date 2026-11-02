@@ -9,5 +9,5 @@ the key's schema: base rows' keys and links' targets are checked against it
 **Signature:**
 
 ```typescript
-readonly key: Schema<K>;
+readonly key: StandardSchemaV1<KIn, K>;
 ```

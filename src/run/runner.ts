@@ -13,16 +13,15 @@ import {
   type AnyRoute,
   DefinitionError,
   type Entities,
-  type EntityDef,
   type Graph,
   type GraphDef,
   type Unread,
 } from "../core/index.ts";
 import { runCaps, tighter } from "./caps.ts";
-import { run } from "./executor.ts";
+import { type RowNaming, run, runWith } from "./executor.ts";
 import { flightsOf } from "./flights.ts";
 import { healthOf } from "./health.ts";
-import { isScopeKey, stableJson } from "./ids.ts";
+import { isScopeKey } from "./ids.ts";
 import { runLimits } from "./limits.ts";
 import { plan } from "./plan.ts";
 import type {
@@ -32,7 +31,6 @@ import type {
   Caps,
   ProviderRef,
   ReadCall,
-  RowResult,
   RunCall,
   RunEnv,
   Runner,
@@ -81,16 +79,9 @@ export function createRunner<E extends Entities, Ctx, Meta, R extends AnyRoute>(
     });
     // with no key the run would plan no route from the entity: refused all the same
     if (refs.length === 0) plan(def, [entity], providers.map(providerId));
-    const ids = known ? rowIds(known, refs) : [];
-    const result = await runOne({ ...call, refs, providers });
-    // each row under its key's id, as the caller looks it up. An entity the graph does not have
-    // was given no key: the run refuses a base row of one before reading anything
-    const rows = new Map<string, RowResult>();
-    refs.forEach((ref, i) => {
-      const row = result.rows.get(ref.row);
-      if (row && known) rows.set(ids[i] ?? known.id(ref.key), row);
-    });
-    return { ...result, rows };
+    // each row under its key's id, as the caller looks it up: the id of the key as the run parsed
+    // it (the key given, with validation off)
+    return runWith(def, optionsOf(held, { ...call, refs, providers }), "plan", byKeyId());
   };
 
   // the implementations read erased types; `Runner<E, Ctx, R>` gives each call site the graph's
@@ -101,29 +92,22 @@ const providerId = (provider: ProviderRef): string =>
   typeof provider === "string" ? provider : provider.id;
 
 /**
- * The id each base row of a read is given back under: its key's. Keys of one id that bring
- * different carried attributes are two refs, both read, and would be one row: refused, by their
- * places. A key whose id cannot be computed is left to the run, whose validation names it.
+ * How `read` names its rows: by their keys' ids. Keys of one id that bring different carried
+ * attributes are two refs, both read, and would be one row: refused, by their places, before
+ * anything is read.
  */
-function rowIds(entity: EntityDef, refs: readonly BaseRef[]): (string | undefined)[] {
-  const first = new Map<string, { readonly at: number; readonly carries: string }>();
-  return refs.map((ref, at) => {
-    let id: string;
-    try {
-      id = entity.id(ref.key);
-    } catch {
-      return undefined;
-    }
-    const carries = stableJson(ref.carries ?? {});
-    const seen = first.get(id);
-    if (!seen) first.set(id, { at, carries });
-    else if (seen.carries !== carries)
+function byKeyId(): RowNaming {
+  const first = new Map<string, { readonly row: string; readonly ref: string }>();
+  return (row, ref) => {
+    const seen = first.get(ref.keyId);
+    if (!seen) first.set(ref.keyId, { row, ref: ref.id });
+    else if (seen.ref !== ref.id)
       throw new DefinitionError(
         "HG_DUPLICATE",
-        `read: keys[${seen.at}] and keys[${at}] are one key with different carried attributes`,
+        `read: ${seen.row} and ${row} are one key with different carried attributes`,
       );
-    return id;
-  });
+    return ref.keyId;
+  };
 }
 
 /**

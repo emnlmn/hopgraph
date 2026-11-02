@@ -101,7 +101,7 @@ export interface Caps {
 export type Cardinality = "1:1" | "1:N" | "N:1" | "N:N";
 
 // @public
-export type CarriedOf<E extends Entities, N extends keyof E> = E[N] extends Entity<infer _K, infer C, infer _X> ? C : never;
+export type CarriedOf<E extends Entities, N extends keyof E> = E[N] extends Entity<infer _K, infer C, infer _X, infer _KIn> ? C : never;
 
 // @public
 export interface CatalogEntry<Meta> {
@@ -157,7 +157,7 @@ export type Connectors<C extends string> =
 };
 
 // @public
-export type ContextOf<E extends Entities, N extends keyof E> = E[N] extends Entity<infer _K, infer _C, infer X> ? X : never;
+export type ContextOf<E extends Entities, N extends keyof E> = E[N] extends Entity<infer _K, infer _C, infer X, infer _KIn> ? X : never;
 
 // @public
 export class CostChangedError extends HopgraphError {
@@ -278,27 +278,27 @@ export type DeriveMaker<R extends object, Meta> = <const I extends keyof R & str
 export type Entities = Readonly<Record<string, EntityBase>>;
 
 // @public
-export interface Entity<K, C extends Attrs, X extends keyof C & string = never> extends EntityBase {
+export interface Entity<K, C extends Attrs, X extends keyof C & string = never, KIn = K> extends EntityBase {
     readonly carries: {
         readonly [A in keyof C]: Schema<C[A]>;
     };
     readonly context: readonly X[];
     readonly id: (key: K) => string;
-    readonly key: Schema<K>;
+    readonly key: StandardSchemaV1<KIn, K>;
 }
 
 // Warning: (ae-forgotten-export) The symbol "Empty" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "IdInput" needs to be exported by the entry point index.d.ts
 //
 // @public
-export function entity<K, C extends Attrs = Empty, const X extends keyof C & string = never>(spec: {
-    readonly key: Schema<K>;
+export function entity<K, C extends Attrs = Empty, const X extends keyof C & string = never, KIn = K>(spec: {
+    readonly key: StandardSchemaV1<KIn, K>;
     readonly personal?: boolean;
     readonly carries?: {
         readonly [A in keyof C]: Schema<C[A]>;
     };
     readonly context?: readonly X[];
-} & IdInput<K>): Entity<K, C, X>;
+} & IdInput<K>): Entity<K, C, X, KIn>;
 
 // @public
 export interface EntityBase {
@@ -391,7 +391,7 @@ export interface GraphBuilder<E extends Entities, Ctx, Meta, Conn extends string
         };
     }): NamedFields<R, Provider<Id, N, R, D, Meta>>;
     // Warning: (ae-forgotten-export) The symbol "RefRest" needs to be exported by the entry point index.d.ts
-    ref<N extends keyof E & string>(entity: N, key: KeyOf<E, N>, ...rest: RefRest<E, N>): TypedRef<N>;
+    ref<N extends keyof E & string>(entity: N, key: KeyInputOf<E, N>, ...rest: RefRest<E, N>): TypedRef<N>;
     relation<F extends keyof E & string, T extends keyof E & string, const Name extends string, L extends Attrs = Empty>(from: F, to: T, name: Name, spec: {
         readonly cardinality: Cardinality;
         readonly link?: Schema<L>;
@@ -490,7 +490,13 @@ export type Kept = {
 };
 
 // @public
-export type KeyOf<E extends Entities, N extends keyof E> = E[N] extends Entity<infer K, infer _C, infer _X> ? K : never;
+export type KeyInput<K, KIn> = unknown extends KIn ? K : KIn;
+
+// @public
+export type KeyInputOf<E extends Entities, N extends keyof E> = E[N] extends Entity<infer K, infer _C, infer _X, infer KIn> ? KeyInput<K, KIn> : never;
+
+// @public
+export type KeyOf<E extends Entities, N extends keyof E> = E[N] extends Entity<infer K, infer _C, infer _X, infer _KIn> ? K : never;
 
 // @public
 export type LinkOut<KT, L extends Attrs, CT extends Attrs> = {
@@ -685,8 +691,8 @@ export type RawFields<R, Meta> = unknown extends R ? "a provider's rows need a t
 export type ReadCall<Ctx> = Omit<RunCall<Ctx>, "refs" | "providers">;
 
 // @public
-export type ReadKey<E extends Entities, N extends keyof E> = E[N] extends Entity<infer K, infer C, infer X> ? [X] extends [never] ? K : {
-    readonly key: K;
+export type ReadKey<E extends Entities, N extends keyof E> = E[N] extends Entity<infer K, infer C, infer X, infer KIn> ? [X] extends [never] ? KeyInput<K, KIn> : {
+    readonly key: KeyInput<K, KIn>;
     readonly carries: Flat<{
         readonly [A in X]: C[A];
     } & {

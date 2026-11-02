@@ -4,12 +4,12 @@
 
 ## Entity interface
 
-An entity as `entity()` declares it: its key of type `K`<!-- -->, the attributes `C` a ref of it may  carry, and `X`<!-- -->, those of them only a base row or a link brings (`context`<!-- -->; none unless given,  so an entity written `Entity<K, C>` has no context, and one with context is not one).
+An entity as `entity()` declares it: its key of type `K`<!-- -->, the attributes `C` a ref of it may  carry, and `X`<!-- -->, those of them only a base row or a link brings (`context`<!-- -->; none unless given,  so an entity written `Entity<K, C>` has no context, and one with context is not one). `KIn`  is what the key's schema accepts, `K` unless it says otherwise (a schema that parses `"5"` to  5): a base row gives that, and the run hands loads, links and results the parsed `K`<!-- -->.
 
 **Signature:**
 
 ```typescript
-export interface Entity<K, C extends Attrs, X extends keyof C & string = never> extends EntityBase 
+export interface Entity<K, C extends Attrs, X extends keyof C & string = never, KIn = K> extends EntityBase 
 ```
 **Extends:** [EntityBase](./hopgraph.entitybase.md)
 
@@ -111,7 +111,7 @@ stable text of a key: cache entries, maps, the trace's digest
 
 </td><td>
 
-[Schema](./hopgraph.schema.md)<!-- -->&lt;K&gt;
+[StandardSchemaV1](./hopgraph.standardschemav1.md)<!-- -->&lt;KIn, K&gt;
 
 
 </td><td>

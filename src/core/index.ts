@@ -37,6 +37,8 @@ export {
   type GraphDef,
   type HydratorDef,
   hopgraph,
+  type KeyInput,
+  type KeyInputOf,
   type KeyOf,
   type LinkOut,
   type Loader,

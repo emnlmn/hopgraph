@@ -10,6 +10,7 @@ import {
   type Graph,
   type GraphDef,
   HopgraphError,
+  ValidationError,
 } from "../core/index.ts";
 import { attribute } from "./attribution.ts";
 import { described } from "./calls.ts";
@@ -72,14 +73,23 @@ export function run<
 }
 
 /**
+ * How a result names a base row: `run` by the row's own id; a runner's `read` by its key's id,
+ * computed of the key as parsed (runner.ts). Called with each row once its key is parsed and before
+ * anything is read: what it throws rejects the run.
+ */
+export type RowNaming = (row: string, ref: RefNode) => string;
+
+/**
  * `run`, with the rule that decides when a job starts (schedule.ts): `plan`, what `run` does, or
  * `barrier`, the rule it replaced (a wave starts once every read of the wave before ended), kept
- * so that the property tests can compare the two. Not part of the package's API.
+ * so that the property tests can compare the two; and how the result names its rows. Not part of
+ * the package's API.
  */
 export async function runWith<Meta, Ctx>(
   graph: GraphDef<Meta>,
   options: RunOptions<Ctx, readonly ProviderRef[]>,
   rule: "plan" | "barrier",
+  name: RowNaming = (row) => row,
 ): Promise<RunResult> {
   const tracer = options.tracer ? guarded(options.tracer) : QUIET;
   const span = tracer.startSpan("hopgraph.run", {
@@ -87,7 +97,7 @@ export async function runWith<Meta, Ctx>(
     "hopgraph.providers": options.providers.length,
   });
   try {
-    const result = await runSpanned(graph, options, rule, tracer, span);
+    const result = await runSpanned(graph, options, rule, name, tracer, span);
     span.setAttribute("hopgraph.status", result.status);
     span.setAttribute("hopgraph.gates", result.gates.length);
     span.setAttribute("hopgraph.billed_bytes", result.billedBytes);
@@ -107,6 +117,7 @@ async function runSpanned<Meta, Ctx>(
   graph: GraphDef<Meta>,
   options: RunOptions<Ctx, readonly ProviderRef[]>,
   rule: "plan" | "barrier",
+  name: RowNaming,
   tracer: Tracer,
   span: Span,
 ): Promise<RunResult> {
@@ -168,7 +179,10 @@ async function runSpanned<Meta, Ctx>(
     // the base rows are the caller's: one that fails its schemas rejects the run before any read
     const given =
       validate === "off" ? options.refs : await stop.race(validBase(def.entities, options.refs));
-    base = given.map((r) => ({ row: r.row, ref: refs.intern(r.entity, r.key, r.carries) }));
+    base = given.map((r) => {
+      const ref = baseRef(refs, r);
+      return { row: name(r.row, ref), ref };
+    });
     const starts = base.map((b) => b.ref);
     await stop.race(execute(planned, { relations, providers, reads }, starts));
     // a failure held until its wave was done fails the run, even when every step has ended
@@ -285,6 +299,16 @@ function providerId(graph: GraphDef<unknown>, provider: ProviderRef): string {
 
 function unevaluated(): never {
   throw new HopgraphError("HG_INTERNAL", "a route walked a step the run did not evaluate");
+}
+
+/** A base row's ref, its key's id computed of the parsed key; an `id` that throws on it refuses the
+ *  row by its place, as a key that fails its schema is, never by the key or what `id` said. */
+function baseRef(refs: RefStore, row: BaseRef): RefNode {
+  try {
+    return refs.intern(row.entity, row.key, row.carries);
+  } catch {
+    throw new ValidationError([{ row: row.row, entity: row.entity, field: "key" }]);
+  }
 }
 
 function routesByBase(routes: readonly PlannedRoute[]): Map<string, PlannedRoute[]> {

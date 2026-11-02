@@ -9,8 +9,8 @@ One key of entity `N` as `read` takes it: the key, typed by the entity's key sch
 **Signature:**
 
 ```typescript
-export type ReadKey<E extends Entities, N extends keyof E> = E[N] extends Entity<infer K, infer C, infer X> ? [X] extends [never] ? K : {
-    readonly key: K;
+export type ReadKey<E extends Entities, N extends keyof E> = E[N] extends Entity<infer K, infer C, infer X, infer KIn> ? [X] extends [never] ? KeyInput<K, KIn> : {
+    readonly key: KeyInput<K, KIn>;
     readonly carries: Flat<{
         readonly [A in X]: C[A];
     } & {
@@ -18,5 +18,5 @@ export type ReadKey<E extends Entities, N extends keyof E> = E[N] extends Entity
     }>;
 } : never;
 ```
-**References:** [Entities](./hopgraph.entities.md)<!-- -->, [Entity](./hopgraph.entity.md)
+**References:** [Entities](./hopgraph.entities.md)<!-- -->, [Entity](./hopgraph.entity.md)<!-- -->, [KeyInput](./hopgraph.keyinput.md)
 
