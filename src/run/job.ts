@@ -15,7 +15,6 @@ import {
   type Budget,
   CostChangedError,
   type EntityDef,
-  HopgraphError,
   type LoadError,
   type LoaderDef,
   type LoaderMerge,
@@ -34,7 +33,7 @@ import {
 import type { Flights } from "./flights.ts";
 import { type Approvals, decide, type Gates } from "./gates.ts";
 import { gateId, keyToken } from "./ids.ts";
-import type { RefNode, Show } from "./refs.ts";
+import { entityOf, type RefNode, type Show } from "./refs.ts";
 import type { Stop, Within } from "./stop.ts";
 import type { CachedAnswer, CachePort, Span, Tracer } from "./types.ts";
 
@@ -488,7 +487,7 @@ export class Jobs {
       const byKeyId = new Map(batch.map((k) => [k.ref.keyId, k]));
       const asked = [...byKeyId.keys()];
       const envelope = call.kind === "done" ? call.value : undefined;
-      const idOf = this.idOf(loader);
+      const idOf = entityOf(this.env.entities, loader.keyedBy).id;
       const answers =
         call.kind === "late"
           ? new Map(asked.map((keyId) => [keyId, DEADLINE]))
@@ -547,13 +546,6 @@ export class Jobs {
     } finally {
       write.end();
     }
-  }
-
-  private idOf(loader: LoaderDef): (key: unknown) => string {
-    const entity = this.env.entities[loader.keyedBy];
-    if (!entity)
-      throw new HopgraphError("HG_INTERNAL", `loader "${loader.id}" is keyed by an unknown entity`);
-    return entity.id;
   }
 }
 

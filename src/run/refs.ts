@@ -21,6 +21,13 @@ export interface RefNode extends RefId {
   readonly id: string;
 }
 
+/** The declared entity of a name; a name that is not one is refused (`HG_UNKNOWN_ENTITY`). */
+export function entityOf(entities: Readonly<Record<string, EntityDef>>, name: string): EntityDef {
+  const entity = Object.hasOwn(entities, name) ? entities[name] : undefined;
+  if (!entity) throw new DefinitionError("HG_UNKNOWN_ENTITY", `no entity "${name}"`);
+  return entity;
+}
+
 /** How a key appears in a result: its id, or its digest when the entity's key is personal. */
 export type Show = (ref: RefId) => string;
 
@@ -32,9 +39,7 @@ export class RefStore {
   constructor(private readonly entities: Readonly<Record<string, EntityDef>>) {}
 
   intern(entity: string, key: unknown, given?: Attrs): RefNode {
-    const def = Object.hasOwn(this.entities, entity) ? this.entities[entity] : undefined;
-    if (!def) throw new DefinitionError("HG_UNKNOWN_ENTITY", `no entity "${entity}"`);
-    const keyId = def.id(key);
+    const keyId = entityOf(this.entities, entity).id(key);
     const values = Object.fromEntries(
       Object.entries(given ?? {}).filter(([, value]) => value !== undefined),
     );
