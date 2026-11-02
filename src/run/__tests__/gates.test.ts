@@ -80,6 +80,21 @@ describe("Approvals", () => {
     expect(await forgotten.cover(scans, [p1], 1)).toBe(false);
   });
 
+  it("of two approvals that cover the keys, spends them in the order of their ids, not as given", async () => {
+    const cache = new MemoryCache();
+    const first = gateId(scans, "r", [p1, p2]);
+    const second = gateId(scans, "r", [p1, p3]);
+    const [lower, higher] = [first, second].sort();
+    await new Approvals({}, cache).remember(first, [p1, p2]);
+    await new Approvals({}, cache).remember(second, [p1, p3]);
+    // given highest id first, with the larger amount
+    const approvals = new Approvals({ [higher as string]: 2e9, [lower as string]: 1e9 }, cache);
+    // the lower id covers first and is spent; the higher then covers what the lower cannot
+    expect(await approvals.cover(scans, [p1], 1e9)).toBe(true);
+    expect(await approvals.cover(scans, [p1], 2e9)).toBe(true);
+    expect(await approvals.cover(scans, [p1], 1)).toBe(false);
+  });
+
   it("reads the scopes it needs once per run, and an entry it did not write is no scope", async () => {
     const cache = new MemoryCache();
     cache.store.set(scopeKey(gate), { kind: "found", value: { tokens: [p1] } });
