@@ -4,6 +4,9 @@
 // once.
 
 import { HopgraphError } from "../core/index.ts";
+import type { Hydration } from "./hydration.ts";
+import { identity, type RefNode } from "./refs.ts";
+import type { StepContext } from "./step.ts";
 
 interface Entry<T> {
   readonly promise: Promise<T>;
@@ -89,5 +92,23 @@ export class Memo<T extends object> {
     const answers = new Map<string, T>();
     for (const item of items) answers.set(keyOf(item), await this.wait(keyOf(item)));
     return answers;
+  }
+}
+
+/** What providers and relations share: a memo and the carried attributes per id. */
+export abstract class Memoized<T extends object> {
+  protected readonly memos = new Map<string, Memo<T>>();
+  /** per id: the carried attributes its loaders read */
+  protected readonly attrs = new Map<string, readonly string[]>();
+
+  constructor(
+    protected readonly ctx: StepContext,
+    protected readonly hydration: Hydration,
+  ) {}
+
+  /** The answer already settled for `ref`, if any. */
+  protected peek(id: string, ref: RefNode): T | undefined {
+    const attrs = this.attrs.get(id);
+    return attrs && this.memos.get(id)?.peek(identity(ref, attrs));
   }
 }

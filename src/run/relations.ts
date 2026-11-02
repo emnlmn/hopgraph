@@ -30,7 +30,7 @@ import {
   say,
   tallyOf,
 } from "./ledger.ts";
-import { Memo } from "./memo.ts";
+import { Memo, Memoized } from "./memo.ts";
 import { distinctRefs, identity, keyText, type RefNode } from "./refs.ts";
 import type { Lane } from "./schedule.ts";
 import { answerOf, loaderOf, type StepContext, statsOf, timedRead } from "./step.ts";
@@ -89,16 +89,7 @@ const AMBIGUOUS = { reason: "ambiguous" } as const;
 /** A strategy's answer for a ref whose links failed their schemas. */
 const INVALID: Projected = { said: say.unknown({ reason: "failed" }), candidates: [] };
 
-export class Relations {
-  private readonly memos = new Map<string, Memo<RelationResult>>();
-  /** per relation: the carried attributes its strategies and their loaders read */
-  private readonly attrs = new Map<string, readonly string[]>();
-
-  constructor(
-    private readonly ctx: StepContext,
-    private readonly hydration: Hydration,
-  ) {}
-
+export class Relations extends Memoized<RelationResult> {
   evaluate(
     lane: Lane,
     relation: RelationDef,
@@ -135,8 +126,7 @@ export class Relations {
   }
 
   result(relation: string, ref: RefNode): RelationResult | undefined {
-    const attrs = this.attrs.get(relation);
-    return attrs && this.memos.get(relation)?.peek(identity(ref, attrs));
+    return this.peek(relation, ref);
   }
 
   private async compute(

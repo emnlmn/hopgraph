@@ -8,21 +8,12 @@ import { capped, notRead, tighter, withinRefs } from "./caps.ts";
 import type { KeyAnswer } from "./envelope.ts";
 import type { Hydration } from "./hydration.ts";
 import { type ProviderAnswer, recordOf, type Said, saidOf, say, tallyOf } from "./ledger.ts";
-import { Memo } from "./memo.ts";
+import { Memo, Memoized } from "./memo.ts";
 import { identity, type RefNode } from "./refs.ts";
 import type { Lane } from "./schedule.ts";
 import { answerOf, loaderOf, type StepContext, statsOf, timedRead } from "./step.ts";
 
-export class Providers {
-  private readonly memos = new Map<string, Memo<ProviderAnswer>>();
-  /** per provider: the carried attributes its loader reads */
-  private readonly attrs = new Map<string, readonly string[]>();
-
-  constructor(
-    private readonly ctx: StepContext,
-    private readonly hydration: Hydration,
-  ) {}
-
+export class Providers extends Memoized<ProviderAnswer> {
   evaluate(
     lane: Lane,
     provider: ProviderDef<unknown>,
@@ -53,8 +44,7 @@ export class Providers {
   }
 
   answer(provider: string, ref: RefNode): ProviderAnswer | undefined {
-    const attrs = this.attrs.get(provider);
-    return attrs && this.memos.get(provider)?.peek(identity(ref, attrs));
+    return this.peek(provider, ref);
   }
 
   private async compute(

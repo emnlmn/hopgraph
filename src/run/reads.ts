@@ -649,31 +649,26 @@ export class Reads {
   }
 
   private settledOf(loader: string): Map<string, KeyAnswer> {
-    let settled = this.settled.get(loader);
-    if (!settled) {
-      settled = new Map();
-      this.settled.set(loader, settled);
-    }
-    return settled;
+    return inner(this.settled, loader);
   }
 
   private claimsOf(loader: string): Map<string, Job> {
-    let claims = this.claims.get(loader);
-    if (!claims) {
-      claims = new Map();
-      this.claims.set(loader, claims);
-    }
-    return claims;
+    return inner(this.claims, loader);
   }
 
   private waitersOf(loader: string): Map<string, Request[]> {
-    let waiters = this.waiters.get(loader);
-    if (!waiters) {
-      waiters = new Map();
-      this.waiters.set(loader, waiters);
-    }
-    return waiters;
+    return inner(this.waiters, loader);
   }
+}
+
+/** The inner map under `key`, created on first use. */
+function inner<V>(outer: Map<string, Map<string, V>>, key: string): Map<string, V> {
+  let m = outer.get(key);
+  if (!m) {
+    m = new Map();
+    outer.set(key, m);
+  }
+  return m;
 }
 
 /** Reads in an order the inputs decide: by wave, then by step. */
