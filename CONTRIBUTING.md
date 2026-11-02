@@ -119,8 +119,8 @@ The public API is what `dist/index.d.ts` exports, recorded in `api/hopgraph.api.
 runs `npm run api:update`, which rewrites the report and the API reference in `docs/api/`, and
 their diff goes into the same commit, where a reviewer sees it. Every public symbol has a doc
 comment: `npm run api` fails on one that has none. Every change a consumer can see gets a line in `CHANGELOG.md` under "Unreleased"; every change
-a consumer has to apply also gets its exact before and after in `MIGRATION.md`. The README's
-"Versioning" section says which changes may come in which release.
+a consumer has to apply also gets its exact before and after in `MIGRATION.md`. The guide's
+[Versioning](docs/guide.md#versioning) section says which changes may come in which release.
 
 ## Write commits
 

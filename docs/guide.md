@@ -25,7 +25,7 @@ application hands it. It runs on Node 20 or later, Deno, Bun and workers.
 rule the executor follows, the error codes, the span attributes and the id formats.
 [docs/api](api/hopgraph.md) is the API reference, generated from the doc comments.
 
-Status: version 0.1.0. The API may change before 1.0 ([Versioning](#versioning));
+Status: version 0.2.0. The API may change before 1.0 ([Versioning](#versioning));
 every change is in [CHANGELOG.md](../CHANGELOG.md), and every change a consumer has to apply, with its
 code before and after, in [MIGRATION.md](../MIGRATION.md).
 

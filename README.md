@@ -7,7 +7,7 @@
 <p align="center">Read data across sources by key through a typed graph.</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.0-2C5E5C?style=flat-square&labelColor=0F2B2C" alt="Version 0.1.0">
+  <img src="https://img.shields.io/badge/version-0.2.0-2C5E5C?style=flat-square&labelColor=0F2B2C" alt="Version 0.2.0">
   <img src="https://img.shields.io/badge/TypeScript-%E2%89%A5%205.4-2C5E5C?style=flat-square&labelColor=0F2B2C&logo=typescript&logoColor=white" alt="TypeScript 5.4 or later">
   <img src="https://img.shields.io/badge/dependencies-0-2C5E5C?style=flat-square&labelColor=0F2B2C" alt="No runtime dependencies">
   <img src="https://img.shields.io/badge/coverage-100%25-2C5E5C?style=flat-square&labelColor=0F2B2C" alt="Line coverage 100%">
