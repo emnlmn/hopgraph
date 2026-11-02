@@ -39,7 +39,7 @@ export default defineConfig({
       include: ["src/**/*.ts"],
       exclude: ["src/**/__tests__/**"],
       // the level the unit tests reached when the threshold was set: it may rise, never fall
-      thresholds: { statements: 95, branches: 86, functions: 98, lines: 97 },
+      thresholds: { statements: 98.5, branches: 95, functions: 99, lines: 99.5 },
     },
   },
 });
