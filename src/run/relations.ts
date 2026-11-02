@@ -25,7 +25,7 @@ import {
 import { Memo, Memoized } from "./memo.ts";
 import { distinctRefs, identity, keyText, type RefNode } from "./refs.ts";
 import type { Lane } from "./schedule.ts";
-import { answerOf, loaderOf, type StepContext, statsOf, timedRead } from "./step.ts";
+import { answerOf, loaderOf, type StepContext, statsOf, strategiesOf, timedRead } from "./step.ts";
 import {
   absentTally,
   cutting,
@@ -56,7 +56,13 @@ interface Draft {
   readonly strategy: StrategyDef;
   readonly loader: string;
   /** each ref it was run on, with what it said of it */
-  readonly answers: readonly (readonly [RefNode, Projected])[];
+  readonly answers: readonly (readonly [Asked, Projected])[];
+}
+
+/** A ref a relation reads, and what its strategies answered for it so far, in their order. */
+interface Asked {
+  readonly ref: RefNode;
+  readonly answered: Answered[];
 }
 
 /** One strategy's answer for one ref, verification included. */
@@ -132,35 +138,32 @@ export class Relations extends Memoized<RelationResult> {
   ): Promise<Map<string, RelationResult>> {
     // refs past the run's cap are not read: cut, never absent
     const { read: refs, past } = withinRefs(all, this.ctx.caps.refs);
-    const answered = new Map<string, Answered[]>(refs.map((ref) => [ref.id, []]));
+    const asked = refs.map((ref): Asked => ({ ref, answered: [] }));
     // union: one round with every strategy on every ref; fallback: a round per strategy, each on
     // the refs the rounds before fell through
-    const rounds =
-      relation.combine === "union" ? [relation.strategies] : relation.strategies.map((s) => [s]);
-    let pending = refs;
+    const declared = strategiesOf(relation);
+    const rounds = relation.combine === "union" ? [declared] : declared.map((s) => [s]);
+    let pending = asked;
     for (const strategies of rounds) {
       if (pending.length === 0) break;
-      const round = await this.round(lane, relation, strategies, pending);
-      for (const ref of pending) answered.get(ref.id)?.push(...(round.get(ref.id) ?? []));
-      pending = pending.filter((ref) => {
-        const latest = answered.get(ref.id)?.at(-1);
+      await this.round(lane, relation, strategies, pending);
+      pending = pending.filter(({ answered }) => {
+        const latest = answered.at(-1);
         return latest !== undefined && fallsThrough(latest.tally);
       });
     }
     const fanOut = tighter(this.ctx.caps.links, relation.caps.links);
-    const results = refs.map((ref): [string, RelationResult] => {
-      const list = answered.get(ref.id) ?? [];
-      const tallies = list.map((a) => a.tally);
+    const results = asked.map(({ ref, answered }): [string, RelationResult] => {
+      const tallies = answered.map((a) => a.tally);
       const result = toOne(relation, {
-        links: list.flatMap((a) => a.links),
+        links: answered.flatMap((a) => a.links),
         tally: relation.combine === "union" ? union(tallies) : fallback(tallies),
-        steps: list.flatMap((a) => [a.record, ...a.checks]),
+        steps: answered.flatMap((a) => [a.record, ...a.checks]),
       });
       return [keyOf(ref), withinLinks(result, fanOut)];
     });
     // the refs past the cap: not read, cut, each with a row step under the first strategy's loader
-    const first = relation.strategies[0]?.loader ?? "";
-    const skipped = notRead(this.ctx, relation.id, first, past).map(
+    const skipped = notRead(this.ctx, relation.id, declared[0].loader, past).map(
       ({ ref, record }): [string, RelationResult] => [
         keyOf(ref),
         { links: [], tally: tallyOf(record), steps: [record] },
@@ -170,13 +173,13 @@ export class Relations extends Memoized<RelationResult> {
   }
 
   /** Strategies side by side on the same refs, a lane each; their candidates verified in one
-   *  read, once they all are done. */
+   *  read, once they all are done. Each ref's answers are added to what it was answered. */
   private async round(
     lane: Lane,
     relation: RelationDef,
     strategies: readonly StrategyDef[],
-    refs: readonly RefNode[],
-  ): Promise<Map<string, Answered[]>> {
+    refs: readonly Asked[],
+  ): Promise<void> {
     const lanes: Lane[] = [];
     const drafts = await Promise.all(
       strategies.map((strategy) => {
@@ -189,13 +192,9 @@ export class Relations extends Memoized<RelationResult> {
     const candidates = drafts.flatMap((d) => d.answers.flatMap(([, p]) => p.candidates));
     const judge = await this.verify(lane, relation, candidates);
     // per ref, an answer per strategy, in the strategies' order
-    const answered = new Map<string, Answered[]>();
     for (const draft of drafts)
-      for (const [ref, projected] of draft.answers) {
-        const answer = finish(relation.id, draft, ref, projected, judge);
-        answered.set(ref.id, [...(answered.get(ref.id) ?? []), answer]);
-      }
-    return answered;
+      for (const [asked, projected] of draft.answers)
+        asked.answered.push(finish(relation.id, draft, asked.ref, projected, judge));
   }
 
   /** One strategy on the refs: hydrated for its needs, read, projected. */
@@ -203,8 +202,9 @@ export class Relations extends Memoized<RelationResult> {
     lane: Lane,
     relation: RelationDef,
     strategy: StrategyDef,
-    refs: readonly RefNode[],
+    asked: readonly Asked[],
   ): Promise<Draft> {
+    const refs = asked.map((a) => a.ref);
     const loader = loaderOf(this.ctx.graph, strategy.loader);
     const needs = [...new Set([...loader.needs, ...strategy.needs])];
     const { ready, refused } = await this.hydration.prepare(lane, relation.from, refs, needs);
@@ -213,12 +213,12 @@ export class Relations extends Memoized<RelationResult> {
     const answers = await this.ctx.reads.busy(
       lane,
       Promise.all(
-        refs.map(async (ref): Promise<readonly [RefNode, Projected]> => {
-          const refusal = refused.get(ref.id);
+        asked.map(async (a): Promise<readonly [Asked, Projected]> => {
+          const refusal = refused.get(a.ref.id);
           const projected = refusal
             ? { said: refusal, candidates: [] }
-            : await this.project(relation, strategy, ref, answerOf(read, ref), needs);
-          return [ref, projected];
+            : await this.project(relation, strategy, a.ref, answerOf(read, a.ref), needs);
+          return [a, projected];
         }),
       ),
     );
@@ -306,13 +306,11 @@ export class Relations extends Memoized<RelationResult> {
     const verdicts = new Map<Candidate, Verdict>();
     const judged = candidates.filter((c) => !skipped.has(c.link.to.id));
     for (const siblings of groupBy(judged, (c) => c.link.from.id)) {
-      const targetsSeen = siblings.map((c) => seen(c.link.to));
       const given = verification.decide(
-        siblings.map((c, i) => ({
-          link: c.out,
-          state: targetsSeen[i]?.said.outcome ?? "unknown",
-          value: targetsSeen[i]?.value,
-        })),
+        siblings.map((c) => {
+          const { said, value } = seen(c.link.to);
+          return { link: c.out, state: said.outcome, value };
+        }),
       );
       siblings.forEach((candidate, i) => {
         const verdict = given[i];

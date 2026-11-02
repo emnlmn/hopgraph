@@ -13,6 +13,7 @@ import {
   type ProviderDef,
   type RelationDef,
 } from "../core/index.ts";
+import { strategiesOf } from "./step.ts";
 
 export interface PlannedRoute {
   readonly base: string;
@@ -82,6 +83,7 @@ function relationsOf(
   for (const id of path.relations) {
     const relation = graph.relations.get(id);
     if (!relation) throw new DefinitionError("HG_UNKNOWN_RELATION", `${at}: no relation "${id}"`);
+    strategiesOf(relation);
     if (relation.from !== here)
       throw new DefinitionError(
         "HG_PATH",
@@ -101,7 +103,7 @@ function relationsOf(
 interface MutableNode {
   readonly id: string;
   readonly work: Work;
-  readonly feeds: string[];
+  readonly feeds: MutableNode[];
 }
 
 class NodeBuilder {
@@ -113,49 +115,51 @@ class NodeBuilder {
   }
 
   list(): PlanNode[] {
-    return [...this.nodes.values()];
+    return [...this.nodes.values()].map(({ id, work, feeds }) => ({
+      id,
+      work,
+      feeds: feeds.map((feed) => feed.id),
+    }));
   }
 
   /** Throws when shared steps wait on each other in a loop, naming the relations on it. */
   refuseCycles(): void {
-    const state = new Map<string, "open" | "done">();
-    const visit = (id: string, trail: readonly string[]): void => {
-      if (state.get(id) === "done") return;
-      if (state.get(id) === "open") {
-        // the trail runs from a step back to its inputs: read the loop the other way round
-        const loop = [...trail.slice(trail.indexOf(id)), id].reverse();
-        const names = loop.map((step) => {
-          const work = this.nodes.get(step)?.work;
-          return work?.kind === "relation" ? `"${work.relation.id}"` : step;
-        });
+    const state = new Map<MutableNode, "open" | "done">();
+    const visit = (node: MutableNode, trail: readonly MutableNode[]): void => {
+      if (state.get(node) === "done") return;
+      if (state.get(node) === "open") {
+        // the trail runs from a step back to its inputs: read the loop the other way round. Only
+        // relations are on it (a base is fed by nothing, a provider feeds nothing), and a
+        // relation's step is its id
+        const loop = [...trail.slice(trail.indexOf(node)), node].reverse();
+        const names = loop.map(({ id }) => `"${id}"`);
         throw new DefinitionError(
           "HG_CYCLE",
           `the requested routes use relations in a cycle (${names.join(", then ")}): ` +
             "ask for them in separate runs",
         );
       }
-      state.set(id, "open");
-      const node = this.nodes.get(id);
-      for (const input of node?.feeds ?? []) visit(input, [...trail, id]);
-      state.set(id, "done");
+      state.set(node, "open");
+      for (const input of node.feeds) visit(input, [...trail, node]);
+      state.set(node, "done");
     };
-    for (const id of this.nodes.keys()) visit(id, []);
+    for (const node of this.nodes.values()) visit(node, []);
   }
 
   /** The chain of a path from `from`: a step per relation, then the provider's. Returns its
    *  leaf. */
   private chain(
-    from: string,
+    from: MutableNode,
     path: readonly RelationDef[],
     provider: ProviderDef<unknown>,
-  ): string {
+  ): MutableNode {
     let at = from;
     for (const relation of path) at = this.shared({ kind: "relation", relation }, [at]);
     return this.shared({ kind: "provider", provider }, [at]);
   }
 
   /** The run's one node for this step, now also fed by `feeds`. */
-  private shared(work: Work, feeds: readonly string[]): string {
+  private shared(work: Work, feeds: readonly MutableNode[]): MutableNode {
     const id = stepOf(work);
     let node = this.nodes.get(id);
     if (!node) {
@@ -163,7 +167,7 @@ class NodeBuilder {
       this.nodes.set(id, node);
     }
     for (const feed of feeds) if (!node.feeds.includes(feed)) node.feeds.push(feed);
-    return id;
+    return node;
   }
 }
 

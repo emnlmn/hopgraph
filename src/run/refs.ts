@@ -65,7 +65,7 @@ export class RefStore {
    * hydrator can give. A context attribute (only a base row or a link brings it) never asks.
    */
   lacks(ref: RefNode, needs: readonly string[]): boolean {
-    const context = this.entities[ref.entity]?.context ?? [];
+    const { context } = entityOf(this.entities, ref.entity);
     return needs.some((need) => ref.given[need] === undefined && !context.includes(need));
   }
 

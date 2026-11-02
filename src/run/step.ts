@@ -1,7 +1,14 @@
 // What every step evaluator (hydration, relations, providers) works with, and what they all do:
 // find a loader, read it with a stopwatch, take one ref's answer out of a read.
 
-import { DefinitionError, type GraphDef, HopgraphError, type LoaderDef } from "../core/index.ts";
+import {
+  DefinitionError,
+  type GraphDef,
+  HopgraphError,
+  type LoaderDef,
+  type RelationDef,
+  type StrategyDef,
+} from "../core/index.ts";
 import type { KeyAnswer } from "./envelope.ts";
 import type { ReadResult, Reads } from "./reads.ts";
 import type { RefNode, RefStore } from "./refs.ts";
@@ -28,6 +35,14 @@ export function loaderOf(graph: GraphDef<unknown>, id: string): LoaderDef {
   if (!loader)
     throw new DefinitionError("HG_FOREIGN", `loader "${id}" was not declared on this graph`);
   return loader;
+}
+
+/** A relation's strategies, at least one; a relation a graph built by hand left without one is
+ *  refused, as the builder refuses it. */
+export function strategiesOf(relation: RelationDef): readonly [StrategyDef, ...StrategyDef[]] {
+  const [first, ...rest] = relation.strategies;
+  if (!first) throw new DefinitionError("HG_SPEC", `relation "${relation.id}" has no strategy`);
+  return [first, ...rest];
 }
 
 export interface TimedRead extends ReadResult {

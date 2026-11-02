@@ -15,6 +15,7 @@
 
 import type { GraphDef } from "../core/index.ts";
 import type { PlanNode, Work } from "./plan.ts";
+import { entityOf } from "./refs.ts";
 import { loaderOf } from "./step.ts";
 
 /**
@@ -138,7 +139,7 @@ function readsOf(graph: GraphDef<unknown>, work: Work): string[] {
  *  is context. */
 function hydratorOf(graph: GraphDef<unknown>, entity: string, needs: readonly string[]): string[] {
   const hydrator = graph.hydrators.get(entity);
-  const context = graph.entities[entity]?.context ?? [];
+  const { context } = entityOf(graph.entities, entity);
   return hydrator && needs.some((need) => !context.includes(need))
     ? [loaderOf(graph, hydrator.loader).id]
     : [];
