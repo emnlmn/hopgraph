@@ -22,6 +22,7 @@ import {
   run,
   type Schema,
 } from "hopgraph";
+import { fixed, print } from "./table.ts";
 
 const text: Schema<string> = {
   "~standard": { version: 1, vendor: "bench", validate: (value) => ({ value: value as string }) },
@@ -171,18 +172,21 @@ for (let i = 0; i < REPEAT; i++) {
   ready.plays?.push(ended.get("plays") ?? Number.NaN);
 }
 
-console.log(`hopgraph latency: node ${process.version}, median of ${REPEAT} runs, 20 base rows\n`);
-console.log("| provider | its reads                            | read by (ms) |");
-console.log("| -------- | ------------------------------------ | -----------: |");
-const rows: [string, string, string][] = [
-  ["rate", "releases, albums, rates: 10 ms each", "rate"],
-  ["label", "performers 10 ms, then labels 120 ms", "label"],
-  ["plays", "plays 300 ms", "plays"],
-  ["(run)", "the run answers", "run"],
-];
-for (const [name, reads, key] of rows)
-  console.log(
-    `| ${name.padEnd(8)} | ${reads.padEnd(36)} | ${median(ready[key] ?? [])
-      .toFixed(0)
-      .padStart(12)} |`,
-  );
+print(
+  `hopgraph latency · node ${process.version} · median of ${REPEAT} runs · 20 base rows`,
+  [
+    { title: "provider", align: "left" },
+    { title: "its reads", align: "left" },
+    { title: "read by (ms)", align: "right" },
+  ],
+  [
+    ["rate", "releases, albums, rates: 10 ms each", "rate"],
+    ["label", "performers 10 ms, then labels 120 ms", "label"],
+    ["plays", "plays 300 ms", "plays"],
+    ["(run)", "the run answers", "run"],
+  ].map(([name, reads, key]) => [
+    name ?? "",
+    reads ?? "",
+    fixed(median(ready[key ?? ""] ?? []), 0),
+  ]),
+);

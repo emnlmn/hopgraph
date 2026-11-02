@@ -26,6 +26,7 @@ import {
   type Span,
   type Tracer,
 } from "hopgraph";
+import { args, clearStatus, fixed, print, status } from "./table.ts";
 
 const text: Schema<string> = {
   "~standard": { version: 1, vendor: "bench", validate: (value) => ({ value: value as string }) },
@@ -229,21 +230,12 @@ async function held(rows: number, cache: CachePort): Promise<number | undefined>
 }
 
 const SIZES = [10, 100, 1_000, 10_000, 100_000];
-const sizes = process.argv
-  .slice(2)
-  .map(Number)
-  .filter((x) => x > 0);
+const sizes = args.map(Number).filter((x) => x > 0);
 
-const lines = [
-  "| cache | base rows | ms (median) | µs per row | heap held (MB) | waves | calls | keys loaded |",
-  "| ----- | --------: | ----------: | ---------: | -------------: | ----: | ----: | ----------: |",
-];
-console.log(
-  `hopgraph bench: node ${process.version}, ${gc ? "" : "no --expose-gc, no heap figures, "}instant loaders\n`,
-);
-for (const line of lines) console.log(line);
+const table: string[][] = [];
 for (const rows of sizes.length > 0 ? sizes : SIZES) {
   const repeat = rows >= 100_000 ? 1 : rows >= 10_000 ? 5 : 15;
+  status(`measuring ${rows.toLocaleString("en-US")} base rows…`);
   // a run before the measured ones: the JIT warms up and the warm cache fills
   const warm = memory();
   await run(graph, options(rows, warm));
@@ -254,16 +246,30 @@ for (const rows of sizes.length > 0 ? sizes : SIZES) {
   ] as const) {
     const m = await measure(rows, cache, repeat);
     const mb = await held(rows, cache);
-    const cells = [
+    table.push([
       name,
       rows.toLocaleString("en-US"),
-      m.ms.toFixed(1),
-      ((m.ms * 1000) / rows).toFixed(1),
-      mb === undefined ? "-" : mb.toFixed(1),
+      fixed(m.ms),
+      fixed((m.ms * 1000) / rows),
+      mb === undefined ? "–" : fixed(mb),
       String(m.waves),
       String(m.calls),
       m.keys.toLocaleString("en-US"),
-    ];
-    console.log(`| ${cells.join(" | ")} |`);
+    ]);
   }
 }
+clearStatus();
+print(
+  `hopgraph bench · node ${process.version} · instant loaders${gc ? "" : " · no --expose-gc, no heap figures"}`,
+  [
+    { title: "cache", align: "left" },
+    { title: "base rows", align: "right" },
+    { title: "ms (median)", align: "right" },
+    { title: "µs per row", align: "right" },
+    { title: "heap held (MB)", align: "right" },
+    { title: "waves", align: "right" },
+    { title: "calls", align: "right" },
+    { title: "keys loaded", align: "right" },
+  ],
+  table,
+);
