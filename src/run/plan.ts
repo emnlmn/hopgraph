@@ -13,6 +13,7 @@ import {
   type ProviderDef,
   type RelationDef,
 } from "../core/index.ts";
+import { strategiesOf } from "./step.ts";
 
 export interface PlannedRoute {
   readonly base: string;
@@ -82,6 +83,7 @@ function relationsOf(
   for (const id of path.relations) {
     const relation = graph.relations.get(id);
     if (!relation) throw new DefinitionError("HG_UNKNOWN_RELATION", `${at}: no relation "${id}"`);
+    strategiesOf(relation);
     if (relation.from !== here)
       throw new DefinitionError(
         "HG_PATH",
