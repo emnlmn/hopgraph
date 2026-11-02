@@ -90,13 +90,7 @@ export class Hydration {
     for (const ref of perKey) this.ask(keyText(ref), wave);
     const read = await timedRead(this.ctx, lane, step, loader, perKey);
 
-    // the keys this read records: asked in no earlier wave, and not taken by a read of this one
-    const mine = perKey.filter((ref) => {
-      const pending = this.pending.get(keyText(ref));
-      if (!pending || pending.taken || pending.wave !== wave) return false;
-      pending.taken = true;
-      return true;
-    });
+    const mine = this.take(perKey, wave);
     const def = this.ctx.graph.entities[entity];
     // a validator may be asynchronous: until the attributes are checked, the lane is busy
     const learned = await this.ctx.reads.busy(
@@ -141,6 +135,17 @@ export class Hydration {
       this.hydrated.has(keyText(ref)) ? [] : [this.pending.get(keyText(ref))?.recorded],
     );
     if (others.length > 0) await this.ctx.reads.busy(lane, Promise.all(others));
+  }
+
+  /** Takes the keys a read of `wave` records: those asked in no earlier wave, and not taken by
+   *  another read of this one. */
+  private take(refs: readonly RefNode[], wave: number): RefNode[] {
+    return refs.filter((ref) => {
+      const pending = this.pending.get(keyText(ref));
+      if (!pending || pending.taken || pending.wave !== wave) return false;
+      pending.taken = true;
+      return true;
+    });
   }
 
   /** A step asks for a key's hydration in `wave`. */

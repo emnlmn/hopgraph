@@ -1010,6 +1010,15 @@ function builder<Meta>(entities: Readonly<Record<string, EntityDef>>) {
         `${where}: loader "${loader.id}" was not declared on this graph`,
       );
   };
+  // a loader of this graph that reads by `entity`, as a hydrator, a strategy or a verification takes
+  const keyedBy = (loader: LoaderDef, entity: string, where: string) => {
+    known(loader, where);
+    if (loader.keyedBy !== entity)
+      throw new DefinitionError(
+        "HG_KEYED_BY",
+        `${where}: loader "${loader.id}" is keyed by "${loader.keyedBy}"`,
+      );
+  };
   // a route as `route` makes it, checked where it is made and again where `graph` takes it: one
   // from plain JavaScript or another graph is refused there too
   const routeDef = (value: unknown): RouteDef => {
@@ -1043,15 +1052,7 @@ function builder<Meta>(entities: Readonly<Record<string, EntityDef>>) {
       hasEntity(spec.keyedBy, `loader "${spec.id}"`);
       if (loaders.has(spec.id))
         throw new DefinitionError("HG_DUPLICATE", `loader "${spec.id}" is declared twice`);
-      if (spec.cost && !spec.price)
-        throw new DefinitionError("HG_SPEC", `loader "${spec.id}" is metered without price`);
-      if (spec.merge && (spec.hints?.length ?? 0) > 0)
-        throw new DefinitionError(
-          "HG_SPEC",
-          `loader "${spec.id}" merges refs and has hints: a merge reads needs only`,
-        );
-      if (spec.retry) checkRetry(spec.id, spec.retry);
-      checkShapes(spec.id, spec.connectors, spec.batch);
+      checkLoaderSpec(spec);
       const def: LoaderDef = {
         kind: "loader",
         id: spec.id,
@@ -1076,12 +1077,7 @@ function builder<Meta>(entities: Readonly<Record<string, EntityDef>>) {
 
     hydrator(entity: string, loader: LoaderDef, project: HydratorDef["project"]): void {
       hasEntity(entity, "hydrator");
-      known(loader, `hydrator of "${entity}"`);
-      if (loader.keyedBy !== entity)
-        throw new DefinitionError(
-          "HG_KEYED_BY",
-          `hydrator of "${entity}": loader "${loader.id}" is keyed by "${loader.keyedBy}"`,
-        );
+      keyedBy(loader, entity, `hydrator of "${entity}"`);
       if (hydrators.has(entity))
         throw new DefinitionError("HG_DUPLICATE", `entity "${entity}" has two hydrators`);
       hydrators.set(entity, { entity, loader: loader.id, project });
@@ -1094,12 +1090,7 @@ function builder<Meta>(entities: Readonly<Record<string, EntityDef>>) {
       if (relations.has(id))
         throw new DefinitionError("HG_DUPLICATE", `relation "${id}" is declared twice`);
       const strategies = spec.strategies((loader, s) => {
-        known(loader, `relation "${id}"`);
-        if (loader.keyedBy !== from)
-          throw new DefinitionError(
-            "HG_KEYED_BY",
-            `relation "${id}": loader "${loader.id}" is keyed by "${loader.keyedBy}"`,
-          );
+        keyedBy(loader, from, `relation "${id}"`);
         return {
           loader: loader.id,
           needs: s.needs ?? [],
@@ -1116,12 +1107,7 @@ function builder<Meta>(entities: Readonly<Record<string, EntityDef>>) {
           `relation "${id}" has ${strategies.length} strategies: say combine`,
         );
       const verify = spec.verify?.((loader, decide) => {
-        known(loader, `verification of "${id}"`);
-        if (loader.keyedBy !== to)
-          throw new DefinitionError(
-            "HG_KEYED_BY",
-            `verification of "${id}": loader "${loader.id}" is keyed by "${loader.keyedBy}"`,
-          );
+        keyedBy(loader, to, `verification of "${id}"`);
         return { loader: loader.id, decide };
       });
       const def: RelationDef = {
@@ -1258,6 +1244,20 @@ function builder<Meta>(entities: Readonly<Record<string, EntityDef>>) {
  */
 function keepByOutcome(o: Kept): Retention {
   return o.found && !o.cut ? "day" : "brief";
+}
+
+/** A loader's spec as a run can follow it: a price for what it meters, no hints when it merges,
+ *  and a retry, connectors and batch that can be held. */
+function checkLoaderSpec(spec: LoaderSpecErased): void {
+  if (spec.cost && !spec.price)
+    throw new DefinitionError("HG_SPEC", `loader "${spec.id}" is metered without price`);
+  if (spec.merge && (spec.hints?.length ?? 0) > 0)
+    throw new DefinitionError(
+      "HG_SPEC",
+      `loader "${spec.id}" merges refs and has hints: a merge reads needs only`,
+    );
+  if (spec.retry) checkRetry(spec.id, spec.retry);
+  checkShapes(spec.id, spec.connectors, spec.batch);
 }
 
 /** A retry policy that can be followed: at least one attempt, waits from 0 to the longest a timer

@@ -15,13 +15,22 @@ import {
   type Budget,
   CostChangedError,
   type EntityDef,
+  type Envelope,
   HopgraphError,
   type LoadError,
   type LoaderDef,
   type LoaderMerge,
   type Ref,
 } from "../core/index.ts";
-import { billOf, type Calls, type Made, type Price, Purse, type Tried } from "./calls.ts";
+import {
+  billOf,
+  type Call,
+  type Calls,
+  type Made,
+  type Price,
+  Purse,
+  type Tried,
+} from "./calls.ts";
 import {
   answersOf,
   audit,
@@ -35,8 +44,8 @@ import type { Flights } from "./flights.ts";
 import { type Approvals, decide, type Gates } from "./gates.ts";
 import { gateId, keyToken } from "./ids.ts";
 import { entityOf, type RefNode, type Show } from "./refs.ts";
-import type { Stop, Within } from "./stop.ts";
-import type { CachedAnswer, CachePort, Span, Tracer } from "./types.ts";
+import type { Stop } from "./stop.ts";
+import type { CachePort, Span, Tracer } from "./types.ts";
 
 /** One loader key of a read. */
 export interface LoaderKey {
@@ -85,6 +94,17 @@ export interface Stops {
   loads?: Stop;
 }
 
+/** A job as it runs: the reads of `loader` in `wave`, for `steps` (named to the person who
+ *  approves a gate), the answers it settles, what stops it, and its span. */
+export interface Running {
+  readonly loader: LoaderDef;
+  readonly wave: number;
+  readonly steps: string;
+  readonly settled: Map<string, KeyAnswer>;
+  readonly stops: Stops;
+  readonly span: Span;
+}
+
 /** What a job did, besides the answers it settled. */
 export interface Done {
   /** the loader keys the cache, or another run's load in flight, answered */
@@ -109,6 +129,17 @@ type Admission = { readonly retries: number; readonly how: string } & (
   | { readonly kind: "run"; readonly budget: Budget }
   | { readonly kind: "refused"; readonly answer: KeyAnswer; readonly errors: readonly LoadError[] }
 );
+type Refused = Extract<Admission, { readonly kind: "refused" }>;
+
+/** A job that does not load: its keys all get `answer`. */
+function refused(
+  how: string,
+  answer: KeyAnswer,
+  retries: number,
+  errors: readonly LoadError[] = [],
+): Refused {
+  return { kind: "refused", how, answer, errors, retries };
+}
 
 const NONE: Loaded = { billed: 0, errors: [], retries: 0, attempts: 0 };
 
@@ -116,20 +147,12 @@ export class Jobs {
   constructor(private readonly env: JobEnv) {}
 
   /**
-   * Answers `keys` of `loader` into `settled`: from the cache, else admitted and loaded in the
-   * loader's batches. `steps`: the steps the job reads for, for the person who approves a gate.
-   * Everything it waits for gives up when its stops stop.
+   * Answers `asked` into the job's `settled`: from the cache, else admitted and loaded in the
+   * loader's batches. Everything it waits for gives up when its stops stop.
    */
-  async run(
-    loader: LoaderDef,
-    wave: number,
-    asked: readonly LoaderKey[],
-    steps: string,
-    settled: Map<string, KeyAnswer>,
-    stops: Stops,
-    span: Span,
-  ): Promise<Done> {
-    const stop = stops.job;
+  async run(job: Running, asked: readonly LoaderKey[]): Promise<Done> {
+    const { loader, settled, span } = job;
+    const stop = job.stops.job;
     // key order, so that the batches do not depend on which step asked first; no two keys of a job
     // share an id (reads.ts keeps a job's keys by id)
     const keys = [...asked].sort((a, b) => (a.id < b.id ? -1 : 1));
@@ -142,31 +165,11 @@ export class Jobs {
     // a read asked before the run stopped whose job starts after it does not start either
     if (stop.stopped()) return late();
     const t0 = this.env.now();
-    const lookup = this.env.tracer.startSpan(
-      "hopgraph.cache.read",
-      { "hopgraph.loader": loader.id, "hopgraph.entries": keys.length },
-      span,
-    );
-    const missing: LoaderKey[] = [];
-    let read: Within<ReadonlyMap<string, CachedAnswer>>;
-    try {
-      read = await stop.within(this.env.cache.getMany(keys.map((k) => k.entry)));
-      if (read.done)
-        for (const k of keys) {
-          const hit = read.value.get(k.entry);
-          if (hit) {
-            settled.set(k.id, fromCache(hit));
-            hits.add(k.id);
-          } else missing.push(k);
-        }
-      lookup.setAttribute("hopgraph.hits", hits.size);
-    } finally {
-      lookup.end();
-    }
+    const missing = await this.missed(job, keys, hits);
     const t1 = this.env.now();
     span.setAttribute("hopgraph.cache.hits", hits.size);
     span.setAttribute("hopgraph.cache_ms", t1 - t0);
-    if (!read.done) return late();
+    if (!missing) return late();
     if (missing.length === 0) {
       span.setAttribute("hopgraph.admission", "cached");
       return { hits, ...NONE };
@@ -176,15 +179,12 @@ export class Jobs {
     const { reads, members } = this.merged(loader, missing);
     // what another run is loading now is waited for, not loaded again
     const cached = hits.size;
-    const left = await this.borrowed(reads, members, settled, hits, stop);
+    const left = await this.borrowed(job, reads, members, hits);
     span.setAttribute("hopgraph.inflight.hits", hits.size - cached);
     if (!left) return late();
     const tb = this.env.now();
-    const loaded =
-      left.length > 0
-        ? await this.loaded(loader, wave, left, steps, settled, stops, span)
-        : undefined;
-    if (loader.merge) await this.narrowed(loader, loader.merge, members, settled, stop, span);
+    const loaded = left.length > 0 ? await this.loaded(job, left) : undefined;
+    if (loader.merge) await this.narrowed(job, loader.merge, members);
     const t2 = loaded?.admitted ?? tb;
     span.setAttribute("hopgraph.price_ms", t2 - tb);
     // waiting for another run's load is loading
@@ -193,27 +193,56 @@ export class Jobs {
     return { hits, ...(loaded ?? NONE) };
   }
 
+  /** The keys the cache does not have; those it has are settled from it and counted in `hits`.
+   *  Undefined when the job stopped waiting for the cache. */
+  private async missed(
+    job: Running,
+    keys: readonly LoaderKey[],
+    hits: Set<string>,
+  ): Promise<LoaderKey[] | undefined> {
+    const lookup = this.env.tracer.startSpan(
+      "hopgraph.cache.read",
+      { "hopgraph.loader": job.loader.id, "hopgraph.entries": keys.length },
+      job.span,
+    );
+    try {
+      const read = await job.stops.job.within(this.env.cache.getMany(keys.map((k) => k.entry)));
+      const missing: LoaderKey[] = [];
+      if (read.done)
+        for (const k of keys) {
+          const hit = read.value.get(k.entry);
+          if (hit) {
+            job.settled.set(k.id, fromCache(hit));
+            hits.add(k.id);
+          } else missing.push(k);
+        }
+      lookup.setAttribute("hopgraph.hits", hits.size);
+      return read.done ? missing : undefined;
+    } finally {
+      lookup.end();
+    }
+  }
+
   /**
    * Of `reads`, those another run is loading now (flights.ts) are waited for: a found or absent
    * answer settles them as the cache would, and counts as a hit; the others are left to load.
    * Undefined when the job stopped while it waited.
    */
   private async borrowed(
+    job: Running,
     reads: readonly LoaderKey[],
     members: ReadonlyMap<string, readonly LoaderKey[]>,
-    settled: Map<string, KeyAnswer>,
     hits: Set<string>,
-    stop: Stop,
   ): Promise<readonly LoaderKey[] | undefined> {
     const { flights } = this.env;
     const flying = reads.map((k) => flights?.waiting(k.entry));
     if (flying.every((f) => f === undefined)) return reads;
-    const landed = await stop.within(Promise.all(flying));
+    const landed = await job.stops.job.within(Promise.all(flying));
     if (!landed.done) return undefined;
     return reads.filter((k, i) => {
       const answer = landed.value[i];
       if (!answer) return true;
-      settled.set(k.id, answer);
+      job.settled.set(k.id, answer);
       for (const m of members.get(k.id) ?? [k]) hits.add(m.id);
       return false;
     });
@@ -222,16 +251,12 @@ export class Jobs {
   /** Admits loader keys and loads them in the loader's batches; `admitted`: when the admission
    *  ended. */
   private async loaded(
-    loader: LoaderDef,
-    wave: number,
+    job: Running,
     reads: readonly LoaderKey[],
-    steps: string,
-    settled: Map<string, KeyAnswer>,
-    stops: Stops,
-    span: Span,
   ): Promise<Loaded & { readonly admitted: number }> {
+    const { loader, wave, settled, stops, span } = job;
     const layers = layersOf(reads);
-    const admission = await this.admit(loader, wave, layers, steps, stops.job, span);
+    const admission = await this.admit(job, layers);
     const admitted = this.env.now();
     span.setAttribute("hopgraph.admission", admission.how);
     if (admission.kind === "refused" || !this.env.loads(wave)) {
@@ -248,11 +273,11 @@ export class Jobs {
     const purse = budget === undefined ? undefined : new Purse(budget);
     // every key admitted is in flight until its call lands it: a run that asks it meanwhile waits
     // for it, even while the calls before its own take their turns
-    const land = this.flying(loader, reads, settled);
+    const land = this.flying(job, reads);
     // a free loader's calls run side by side; a metered job's take turns drawing from its budget,
     // so that each is told exactly what the ones before it left
     const call = (batch: readonly LoaderKey[]) =>
-      this.load(loader, batch, purse, settled, stop, span).finally(() => land(batch));
+      this.load(job, batch, purse, stop).finally(() => land(batch));
     let loads: Loaded[];
     try {
       loads = purse ? await inTurn(batches, call) : await Promise.all(batches.map(call));
@@ -300,25 +325,17 @@ export class Jobs {
 
   /** Each key a merged read answered: its own part of the value, kept under its own entry. */
   private async narrowed(
-    loader: LoaderDef,
+    job: Running,
     merge: LoaderMerge,
     members: ReadonlyMap<string, readonly LoaderKey[]>,
-    settled: Map<string, KeyAnswer>,
-    stop: Stop,
-    span: Span,
   ): Promise<void> {
-    const writes = [];
+    const own: [LoaderKey, KeyAnswer][] = [];
     for (const [readId, group] of members) {
-      const answer = answered(settled.get(readId));
-      settled.delete(readId);
-      for (const k of group) {
-        const own = narrow(merge, answer, k.view);
-        settled.set(k.id, own);
-        const kept = keepable(own, loader.keep);
-        if (kept) writes.push({ key: k.entry, ...kept });
-      }
+      const answer = answered(job.settled.get(readId));
+      job.settled.delete(readId);
+      for (const k of group) own.push([k, narrow(merge, answer, k.view)]);
     }
-    await this.write(loader, writes, stop, span);
+    await this.settle(job, own, job.stops.job);
   }
 
   /**
@@ -329,14 +346,9 @@ export class Jobs {
    * price is known (`JobEnv.prices`: the same request, moments before) is not priced again. An
    * approval the price grew past is refused: the run collects it and fails (reads.ts).
    */
-  private async admit(
-    loader: LoaderDef,
-    wave: number,
-    layers: readonly (readonly LoaderKey[])[],
-    steps: string,
-    stop: Stop,
-    span: Span,
-  ): Promise<Admission> {
+  private async admit(job: Running, layers: readonly (readonly LoaderKey[])[]): Promise<Admission> {
+    const { loader, wave, steps, span } = job;
+    const stop = job.stops.job;
     const caps = loader.cost?.metered;
     const { price } = loader;
     if (!caps || !price)
@@ -348,41 +360,15 @@ export class Jobs {
     );
     const gate = gateId(loader, restriction, tokens);
     span.setAttribute("hopgraph.gate", gate);
-    const known = this.env.prices.get(gate);
-    let bytes = known ?? 0;
-    let retries = 0;
-    const refused = (
-      how: string,
-      answer: KeyAnswer,
-      errors: readonly LoadError[] = [],
-    ): Admission => ({
-      kind: "refused",
-      how,
-      answer,
-      errors,
-      retries,
-    });
-    for (const layer of known === undefined ? layers : []) {
-      const pricing = await this.price(loader, price, layer, stop, span);
-      retries += pricing.retries;
-      const { call } = pricing;
-      // a dry run the run stopped waiting for prices nothing: no load starts any more
-      if (call.kind === "late" || stop.stopped()) return refused("stopped", DEADLINE);
-      if (call.kind === "open")
-        return refused("open", open(call.connectors), [opened(keys.length)]);
-      if (call.kind === "threw") return refused("failed", FAILED, [call.error]);
-      // a dry run that answered nonsense prices nothing: its keys failed, nothing is billed
-      if (!Number.isFinite(call.value) || call.value < 0) return refused("failed", FAILED);
-      bytes += call.value;
-    }
-    this.env.prices.set(gate, bytes);
-    span.setAttribute("hopgraph.price_bytes", bytes);
+    const priced = await this.priced(job, price, layers, gate);
+    if (priced.kind === "refused") return priced;
+    const { bytes, retries } = priced;
 
     const approval = this.env.approvals.exact(gate);
     // keys an approval of more keys covers, at a price it still has: they run on their own price
     if (approval === undefined && bytes > caps.auto && bytes <= caps.approve) {
       const covered = await stop.within(this.env.approvals.cover(loader, tokens, bytes));
-      if (!covered.done) return refused("stopped", DEADLINE);
+      if (!covered.done) return refused("stopped", DEADLINE, retries);
       if (covered.value)
         return { kind: "run", how: "covered", budget: { maxBytes: bytes }, retries };
     }
@@ -392,7 +378,7 @@ export class Jobs {
     } catch (error) {
       // the run fails once every approval of this wave is decided, naming them all (reads.ts)
       this.env.refuse(wave, costChanged(error));
-      return refused("refused", FAILED);
+      return refused("refused", FAILED, retries);
     }
     if (decision.kind === "run")
       return {
@@ -402,34 +388,74 @@ export class Jobs {
         retries,
       };
     if (decision.kind === "too_heavy")
-      return refused("too_heavy", { kind: "unknown", reason: { reason: "too_heavy", bytes } });
+      return refused(
+        "too_heavy",
+        { kind: "unknown", reason: { reason: "too_heavy", bytes } },
+        retries,
+      );
     if (this.env.gates.add({ id: gate, step: steps, loader: loader.id, keys: keys.length, bytes }))
       await stop.within(this.env.approvals.remember(gate, tokens));
-    return refused("gated", { kind: "unknown", reason: { reason: "awaiting_approval", bytes } });
+    return refused(
+      "gated",
+      { kind: "unknown", reason: { reason: "awaiting_approval", bytes } },
+      retries,
+    );
+  }
+
+  /** The bytes the job's `gate` would bill: the price known for it, or else one dry run per call
+   *  layer, kept for the gate's next job. A dry run that prices nothing refuses the job. */
+  private async priced(
+    job: Running,
+    price: Price,
+    layers: readonly (readonly LoaderKey[])[],
+    gate: string,
+  ): Promise<
+    Refused | { readonly kind: "priced"; readonly bytes: number; readonly retries: number }
+  > {
+    const known = this.env.prices.get(gate);
+    let bytes = known ?? 0;
+    let retries = 0;
+    for (const layer of known === undefined ? layers : []) {
+      const pricing = await this.price(job, price, layer);
+      retries += pricing.retries;
+      const { call } = pricing;
+      // a dry run the run stopped waiting for prices nothing: no load starts any more
+      if (call.kind === "late" || job.stops.job.stopped())
+        return refused("stopped", DEADLINE, retries);
+      if (call.kind === "open")
+        return refused("open", open(call.connectors), retries, [opened(layers.flat().length)]);
+      if (call.kind === "threw") return refused("failed", FAILED, retries, [call.error]);
+      // a dry run that answered nonsense prices nothing: its keys failed, nothing is billed
+      if (!Number.isFinite(call.value) || call.value < 0) return refused("failed", FAILED, retries);
+      bytes += call.value;
+    }
+    this.env.prices.set(gate, bytes);
+    job.span.setAttribute("hopgraph.price_bytes", bytes);
+    return { kind: "priced", bytes, retries };
   }
 
   /** One dry run, under its own span. */
   private async price(
-    loader: LoaderDef,
+    job: Running,
     price: Price,
     layer: readonly LoaderKey[],
-    stop: Stop,
-    span: Span,
   ): Promise<Tried<number, Made<number>>> {
+    const { loader } = job;
     const dry = this.env.tracer.startSpan(
       "hopgraph.price",
       { "hopgraph.loader": loader.id, "hopgraph.keys": layer.length },
-      span,
+      job.span,
     );
     try {
-      const views = layer.map((k) => k.view);
       const pricing = await this.env.calls.price(
-        loader,
+        {
+          loader,
+          refs: layer.map((k) => k.view),
+          connectors: this.env.held(loader),
+          stop: job.stops.job,
+          span: dry,
+        },
         price,
-        views,
-        this.env.held(loader),
-        stop,
-        dry,
       );
       const { call } = pricing;
       ended(dry, call.kind, pricing.attempts);
@@ -447,31 +473,27 @@ export class Jobs {
    * answer when the cache would keep it, else with none, so a run that waited reads it itself.
    * Landing a key twice lands it once.
    */
-  private flying(
-    loader: LoaderDef,
-    reads: readonly LoaderKey[],
-    settled: ReadonlyMap<string, KeyAnswer>,
-  ): (keys: readonly LoaderKey[]) => void {
+  private flying(job: Running, reads: readonly LoaderKey[]): (keys: readonly LoaderKey[]) => void {
     const flights = this.env.flights;
     if (!flights) return () => undefined;
     const lands = new Map(reads.map((k) => [k.id, flights.start(k.entry)]));
     return (keys) => {
       for (const k of keys) {
-        const answer = settled.get(k.id);
-        lands.get(k.id)?.(answer && keepable(answer, loader.keep) ? answer : undefined);
+        const answer = job.settled.get(k.id);
+        lands.get(k.id)?.(answer && keepable(answer, job.loader.keep) ? answer : undefined);
       }
     };
   }
 
-  /** One call: its answers settled, what may be kept written back, its bill and failures. */
+  /** One call, under `stop` (the job's loads): its answers settled, what may be kept written back,
+   *  its bill and failures. */
   private async load(
-    loader: LoaderDef,
+    job: Running,
     batch: readonly LoaderKey[],
     purse: Purse | undefined,
-    settled: Map<string, KeyAnswer>,
     stop: Stop,
-    span: Span,
   ): Promise<Loaded> {
+    const { loader } = job;
     const views = batch.map((k) => k.view);
     const held = this.env.held(loader);
     const one = this.env.tracer.startSpan(
@@ -482,52 +504,29 @@ export class Jobs {
         "hopgraph.connectors": [...held],
         ...(purse ? { "hopgraph.budget_bytes": purse.left() } : {}),
       },
-      span,
+      job.span,
     );
     try {
       const { call, attempts, retries, billed } = await this.env.calls.load(
-        loader,
-        views,
-        held,
+        { loader, refs: views, connectors: held, stop, span: one },
         purse,
-        stop,
-        one,
       );
       // a batch holds each key id once (layersOf)
-      const asked = batch.map((k) => k.ref.keyId);
-      const envelope = call.kind === "done" ? call.value : undefined;
-      const idOf = entityOf(this.env.entities, loader.keyedBy).id;
-      const answers =
-        call.kind === "late"
-          ? new Map(asked.map((keyId) => [keyId, DEADLINE]))
-          : call.kind === "open"
-            ? new Map(asked.map((keyId) => [keyId, open(call.connectors)]))
-            : answersOf(asked, idOf, envelope, loader.partial);
-      // a strict run trusts no envelope that contradicts itself: those keys fail, and it says why
-      const audited = envelope && this.env.strict ? audit(asked, idOf, envelope) : undefined;
-      for (const keyId of audited?.conflicted ?? []) answers.set(keyId, FAILED);
-      const writes = [];
-      for (const k of batch) {
-        const answer = answered(answers.get(k.ref.keyId));
-        settled.set(k.id, answer);
-        const kept = keepable(answer, loader.keep);
-        if (kept) writes.push({ key: k.entry, ...kept });
-      }
-      await this.write(loader, writes, stop, span);
+      const { answers, errors } = this.told(
+        loader,
+        call,
+        batch.map((k) => k.ref.keyId),
+      );
+      await this.settle(
+        job,
+        batch.map((k): [LoaderKey, KeyAnswer] => [k, answered(answers.get(k.ref.keyId))]),
+        stop,
+      );
       // what failed attempts said they billed, and the answer's own bill
-      const done = { retries, attempts, billed: billed + (billOf(envelope?.billedBytes) ?? 0) };
+      const own = call.kind === "done" ? (billOf(call.value.billedBytes) ?? 0) : 0;
+      const done = { retries, attempts, billed: billed + own };
       ended(one, call.kind, attempts);
       one.setAttribute("hopgraph.billed_bytes", done.billed);
-      const errors: LoadError[] =
-        call.kind === "done"
-          ? [...call.value.errors, ...(audited?.errors ?? [])]
-          : call.kind === "threw"
-            ? [call.error]
-            : call.kind === "spent"
-              ? [{ code: "HG_BUDGET_SPENT", keys: asked.length }]
-              : call.kind === "open"
-                ? [opened(asked.length)]
-                : [];
       for (const error of errors) one.recordError(error);
       return { ...done, errors };
     } finally {
@@ -535,19 +534,54 @@ export class Jobs {
     }
   }
 
-  /** Writes answers back; a write the job stopped waiting for may still land: the answers stand
-   *  either way. */
-  private async write(
+  /** What a call told of the key ids it asked: an answer for each, and its failures for the
+   *  trace. */
+  private told(
     loader: LoaderDef,
-    writes: Parameters<CachePort["setMany"]>[0],
+    call: Call<Envelope<unknown, unknown>>,
+    asked: readonly string[],
+  ): { readonly answers: Map<string, KeyAnswer>; readonly errors: readonly LoadError[] } {
+    const each = (answer: KeyAnswer) => new Map(asked.map((keyId) => [keyId, answer]));
+    switch (call.kind) {
+      case "late":
+        return { answers: each(DEADLINE), errors: [] };
+      case "open":
+        return { answers: each(open(call.connectors)), errors: [opened(asked.length)] };
+      case "spent":
+        return { answers: each(FAILED), errors: [{ code: "HG_BUDGET_SPENT", keys: asked.length }] };
+      case "threw":
+        return { answers: each(FAILED), errors: [call.error] };
+      case "done": {
+        const envelope = call.value;
+        const idOf = entityOf(this.env.entities, loader.keyedBy).id;
+        const answers = answersOf(asked, idOf, envelope, loader.partial);
+        if (!this.env.strict) return { answers, errors: [...envelope.errors] };
+        // a strict run trusts no envelope that contradicts itself: those keys fail, and it says why
+        const audited = audit(asked, idOf, envelope);
+        for (const keyId of audited.conflicted) answers.set(keyId, FAILED);
+        return { answers, errors: [...envelope.errors, ...audited.errors] };
+      }
+    }
+  }
+
+  /** Settles each key's answer and writes back what the cache keeps; a write the job stopped
+   *  waiting for may still land: the answers stand either way. */
+  private async settle(
+    job: Running,
+    answers: readonly (readonly [LoaderKey, KeyAnswer])[],
     stop: Stop,
-    span: Span,
   ): Promise<void> {
+    const writes = [];
+    for (const [k, answer] of answers) {
+      job.settled.set(k.id, answer);
+      const kept = keepable(answer, job.loader.keep);
+      if (kept) writes.push({ key: k.entry, ...kept });
+    }
     if (writes.length === 0) return;
     const write = this.env.tracer.startSpan(
       "hopgraph.cache.write",
-      { "hopgraph.loader": loader.id, "hopgraph.entries": writes.length },
-      span,
+      { "hopgraph.loader": job.loader.id, "hopgraph.entries": writes.length },
+      job.span,
     );
     try {
       await stop.within(this.env.cache.setMany(writes));

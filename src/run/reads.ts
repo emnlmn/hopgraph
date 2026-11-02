@@ -434,17 +434,7 @@ export class Reads {
     job.stops = stops;
     const settled = this.settledOf(loader.id);
     const asking = job.requests.filter((r) => r.keys.some((k) => job.keys.has(k.id)));
-    const steps = new Set(asking.map((r) => r.step));
-    const claims = this.claimsOf(loader.id);
-    for (const offer of this.offered(loader.id, wave)) {
-      const { id } = offer.key;
-      const claimed = claims.get(id);
-      if (settled.has(id) || (claimed && (claimed.wave <= wave || claimed.stops))) continue;
-      claimed?.keys.delete(id);
-      job.keys.set(id, offer.key);
-      claims.set(id, job);
-      steps.add(offer.step);
-    }
+    const steps = new Set([...asking.map((r) => r.step), ...this.takeOffers(job, settled)]);
     this.started += 1;
     this.latest = Math.max(this.latest, wave);
     const step = [...steps].sort();
@@ -468,15 +458,9 @@ export class Reads {
     try {
       const keys = [...job.keys.values()];
       // whatever stopped the job, each of its keys has an answer (Jobs.run)
-      const done = await this.jobs.run(loader, wave, keys, step.join(" + "), settled, stops, span);
-      // a key loaded is loaded for the step with the smallest id that asked for it
-      const owner = new Map<string, string>();
-      for (const r of asking)
-        for (const k of r.keys) {
-          const first = owner.get(k.id);
-          if (job.keys.has(k.id) && (first === undefined || r.step < first))
-            owner.set(k.id, r.step);
-        }
+      const running = { loader, wave, steps: step.join(" + "), settled, stops, span };
+      const done = await this.jobs.run(running, keys);
+      const owner = ownerOf(asking, job.keys);
       for (const r of asking)
         r.loaded = new Set(
           r.keys.filter((k) => owner.get(k.id) === r.step && !done.hits.has(k.id)).map((k) => k.id),
@@ -497,6 +481,24 @@ export class Reads {
       if (thrown) span.recordError(described(thrown.error));
       span.end();
     }
+  }
+
+  /** Takes into `job` the keys steps offer it that are not answered, nor held by a job of its wave
+   *  or an earlier one, nor by one already running; the steps whose offers it took. */
+  private takeOffers(job: Job, settled: ReadonlyMap<string, KeyAnswer>): string[] {
+    const { loader, wave } = job;
+    const claims = this.claimsOf(loader.id);
+    const steps: string[] = [];
+    for (const offer of this.offered(loader.id, wave)) {
+      const { id } = offer.key;
+      const claimed = claims.get(id);
+      if (settled.has(id) || (claimed && (claimed.wave <= wave || claimed.stops))) continue;
+      claimed?.keys.delete(id);
+      job.keys.set(id, offer.key);
+      claims.set(id, job);
+      steps.push(offer.step);
+    }
+    return steps;
   }
 
   /** The job is over: the reads waiting only for its keys get their answers, in an order the
@@ -675,6 +677,21 @@ function inner<V>(outer: Map<string, Map<string, V>>, key: string): Map<string, 
 function byStep(a: Request, b: Request): number {
   if (a.wave !== b.wave) return a.wave - b.wave;
   return a.step < b.step ? -1 : a.step > b.step ? 1 : 0;
+}
+
+/** Per key of a job, the step it is loaded for: of the reads that asked for it, the one whose step
+ *  has the smallest id. */
+function ownerOf(
+  asking: readonly Request[],
+  keys: ReadonlyMap<string, LoaderKey>,
+): Map<string, string> {
+  const owner = new Map<string, string>();
+  for (const r of asking)
+    for (const k of r.keys) {
+      const first = owner.get(k.id);
+      if (keys.has(k.id) && (first === undefined || r.step < first)) owner.set(k.id, r.step);
+    }
+  return owner;
 }
 
 /** What a job's keys came to, on its span. */

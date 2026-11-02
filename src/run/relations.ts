@@ -11,7 +11,6 @@
 import type { Attrs, Cut, LinkOut, RelationDef, StrategyDef, Verdict } from "../core/index.ts";
 import { capped, notRead, tighter, withinRefs } from "./caps.ts";
 import type { KeyAnswer } from "./envelope.ts";
-import type { Hydration } from "./hydration.ts";
 import {
   type Link,
   type RelationResult,
@@ -25,7 +24,7 @@ import {
 import { Memo, Memoized } from "./memo.ts";
 import { distinctRefs, identity, keyText, type RefNode } from "./refs.ts";
 import type { Lane } from "./schedule.ts";
-import { answerOf, loaderOf, type StepContext, statsOf, strategiesOf, timedRead } from "./step.ts";
+import { answerOf, loaderOf, statsOf, strategiesOf, timedRead } from "./step.ts";
 import {
   absentTally,
   cutting,

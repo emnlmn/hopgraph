@@ -9,7 +9,6 @@ import {
   type Entities,
   type Graph,
   type GraphDef,
-  HopgraphError,
   ValidationError,
 } from "../core/index.ts";
 import { attribute } from "./attribution.ts";

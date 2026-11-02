@@ -42,6 +42,16 @@ export interface CallEnv {
 /** A metered loader's dry run. */
 export type Price = NonNullable<LoaderDef["price"]>;
 
+/** A call as it is made: `refs` of `loader`, through `connectors`, under `stop` (its job's), on
+ *  `span`. */
+export interface Calling {
+  readonly loader: LoaderDef;
+  readonly refs: readonly Ref<unknown, Attrs>[];
+  readonly connectors: readonly string[];
+  readonly stop: Stop;
+  readonly span: Span;
+}
+
 /** How a call ended, after every attempt it was given. */
 export type Call<T> =
   /** the run stopped before it answered: its answer, if it comes, is dropped */
@@ -111,22 +121,15 @@ export class Calls {
   constructor(private readonly env: CallEnv) {}
 
   /**
-   * Loads `refs`, holding a slot on each of `connectors`; a metered load draws on `purse`. An
-   * answer that comes after `stop` (its job's) stopped is dropped: the call is late.
+   * Loads the call's refs, holding a slot on each of its connectors; a metered load draws on
+   * `purse`. An answer that comes after the call's stop stopped is dropped: the call is late.
    */
-  load(
-    loader: LoaderDef,
-    refs: readonly Ref<unknown, Attrs>[],
-    connectors: readonly string[],
-    purse: Purse | undefined,
-    stop: Stop,
-    span: Span,
-  ): Promise<Tried<Envelope<unknown, unknown>>> {
+  load(call: Calling, purse: Purse | undefined): Promise<Tried<Envelope<unknown, unknown>>> {
     if (purse?.empty())
       return Promise.resolve({ call: { kind: "spent" }, attempts: 0, retries: 0, billed: 0 });
     const attempt = async (): Promise<Attempt<Envelope<unknown, unknown>>> => {
       const budget: Budget = { maxBytes: purse?.left() };
-      const attempted = await this.loadOnce(loader, refs, connectors, budget, stop, span);
+      const attempted = await this.loadOnce(call, budget);
       // what the attempt says it billed, or else all it was told: a bill that is not a number of
       // bytes is no bill
       const told = budget.maxBytes ?? 0;
@@ -135,28 +138,22 @@ export class Calls {
       if (purse && attempted.kind === "threw") purse.charge(billedBy(attempted.error) ?? told);
       return attempted;
     };
-    return this.tried(loader, refs.length, connectors, attempt, stop, span, () => !purse?.empty());
+    return this.tried(call, attempt, () => !purse?.empty());
   }
 
-  /** A dry run of `refs` by the loader's `price`: the bytes loading them would bill. It holds no
-   *  slot and takes no token, but goes through the circuits of `connectors`: an open source is not
-   *  called at all. */
-  price(
-    loader: LoaderDef,
-    price: Price,
-    refs: readonly Ref<unknown, Attrs>[],
-    connectors: readonly string[],
-    stop: Stop,
-    span: Span,
-  ): Promise<Tried<number, Made<number>>> {
-    const ctx = ctxFor(this.env.ctx, loader.ctxKeys);
+  /** A dry run of the call's refs by the loader's `price`: the bytes loading them would bill. It
+   *  holds no slot and takes no token, but goes through the circuits of its connectors: an open
+   *  source is not called at all. */
+  price(call: Calling, price: Price): Promise<Tried<number, Made<number>>> {
+    const { refs, stop } = call;
+    const ctx = ctxFor(this.env.ctx, call.loader.ctxKeys);
     const attempt = async (): Promise<Attempt<number>> => {
       if (stop.stopped()) return LATE;
-      const entry = met(this.env.health.enter(connectors), span);
+      const entry = met(this.env.health.enter(call.connectors), call.span);
       if (entry.kind === "open") return { kind: "open", connectors: entry.connectors };
       return this.judged(entry, () => this.answered(() => price(refs, ctx, stop.signal), stop));
     };
-    return this.tried(loader, refs.length, connectors, attempt, stop, span);
+    return this.tried(call, attempt);
   }
 
   /**
@@ -168,16 +165,14 @@ export class Calls {
    * was: a retry never turns a failure into a deadline.
    */
   private async tried<T>(
-    loader: LoaderDef,
-    keys: number,
-    connectors: readonly string[],
+    call: Calling,
     attempt: () => Promise<Attempt<T>>,
-    stop: Stop,
-    span: Span,
     more: () => boolean = () => true,
   ): Promise<Tried<T, Made<T>>> {
     const { health } = this.env;
-    const policy = loader.retry;
+    const { connectors, stop, span } = call;
+    const keys = call.refs.length;
+    const policy = call.loader.retry;
     let billed = 0;
     let attempts = 0;
     let retries = 0;
@@ -222,14 +217,11 @@ export class Calls {
    * waited is refused if a circuit opened meanwhile, and gives its tokens back.
    */
   private async loadOnce(
-    loader: LoaderDef,
-    refs: readonly Ref<unknown, Attrs>[],
-    connectors: readonly string[],
+    call: Calling,
     budget: Budget,
-    stop: Stop,
-    span: Span,
   ): Promise<Attempt<Envelope<unknown, unknown>>> {
     const { health } = this.env;
+    const { loader, refs, connectors, stop, span } = call;
     const ctx = ctxFor(this.env.ctx, loader.ctxKeys);
     const release = await this.env.limits.hold(connectors, this.ownSlot(loader), stop.signal);
     if (!release) return LATE;

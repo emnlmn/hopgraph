@@ -36,47 +36,66 @@ export function checkGraph<Meta>(
   graph: GraphDef<Meta>,
   opts: { readonly bases: readonly string[]; readonly maxDepth?: number },
 ): GraphCheck {
-  const maxDepth = opts.maxDepth ?? 4;
-  const problems: GraphProblem[] = [];
-  const problem = (code: DefinitionCode, message: string) => problems.push({ code, message });
-  const alternatives: Record<string, string[]> = {};
+  return {
+    problems: [
+      ...baseProblems(graph, opts.bases),
+      ...pairProblems(graph, opts.bases),
+      ...routeEndProblems(graph, opts.bases),
+      ...unusedLoaders(graph),
+      ...missingHydrators(graph),
+    ],
+    alternatives: alternatives(graph, opts.bases, opts.maxDepth ?? 4),
+  };
+}
+
+function problem(code: DefinitionCode, message: string): GraphProblem {
+  return { code, message };
+}
+
+/** Bases that are not entities. */
+function baseProblems<Meta>(graph: GraphDef<Meta>, bases: readonly string[]): GraphProblem[] {
+  return bases
+    .filter((base) => !Object.hasOwn(graph.entities, base))
+    .map((base) => problem("HG_UNKNOWN_ENTITY", `base "${base}" is not an entity`));
+}
+
+/** Every pair of a base and a provider, base by base, with the route the graph gives it. */
+function pairs<Meta>(graph: GraphDef<Meta>, bases: readonly string[]) {
   const routeOf = new Map(graph.routes.map((r) => [`${r.base}␟${r.provider}`, r]));
+  return bases.flatMap((base) =>
+    [...graph.providers.values()].map((provider) => ({
+      base,
+      provider,
+      pair: `${base} › ${provider.id}`,
+      route: routeOf.get(`${base}␟${provider.id}`),
+    })),
+  );
+}
 
-  for (const base of opts.bases)
-    if (!Object.hasOwn(graph.entities, base))
-      problem("HG_UNKNOWN_ENTITY", `base "${base}" is not an entity`);
+/** Pairs with no route, and what is wrong with the routes of the others. Every base must reach
+ *  every provider: there is no way to declare a pair unreachable. */
+function pairProblems<Meta>(graph: GraphDef<Meta>, bases: readonly string[]): GraphProblem[] {
+  return pairs(graph, bases).flatMap(({ base, provider, pair, route }) =>
+    route
+      ? routeProblems(route, base, provider.entity, graph.relations)
+      : [problem("HG_NO_ROUTE", `${pair}: no route`)],
+  );
+}
 
-  for (const base of opts.bases) {
-    for (const provider of graph.providers.values()) {
-      const pair = `${base} › ${provider.id}`;
-      const route = routeOf.get(`${base}␟${provider.id}`);
-      const reachable =
-        base === provider.entity
-          ? [[]]
-          : simplePaths(graph.relations, base, provider.entity, maxDepth);
-      if (!route) {
-        // every base must reach every provider: there is no way to declare a pair unreachable
-        problem("HG_NO_ROUTE", `${pair}: no route`);
-        continue;
-      }
-      problems.push(...routeProblems(route, base, provider.entity, graph.relations));
-      const used = new Set(
-        (route.how.kind === "path" ? [route.how] : route.how.paths).map((p) =>
-          p.relations.join(" · "),
-        ),
-      );
-      const unused = reachable.map((p) => p.join(" · ")).filter((p) => p !== "" && !used.has(p));
-      if (unused.length > 0) alternatives[pair] = unused.sort();
-    }
-  }
-
+/** Routes from an entity that is not a base, or to a provider the graph does not have. */
+function routeEndProblems<Meta>(graph: GraphDef<Meta>, bases: readonly string[]): GraphProblem[] {
+  const out: GraphProblem[] = [];
   for (const route of graph.routes) {
-    if (!opts.bases.includes(route.base))
-      problem("HG_NOT_A_BASE", `route from "${route.base}": not a base`);
+    if (!bases.includes(route.base))
+      out.push(problem("HG_NOT_A_BASE", `route from "${route.base}": not a base`));
     if (!graph.providers.has(route.provider))
-      problem("HG_UNKNOWN_PROVIDER", `route to "${route.provider}": no such provider`);
+      out.push(problem("HG_UNKNOWN_PROVIDER", `route to "${route.provider}": no such provider`));
   }
+  return out;
+}
 
+/** Loaders no relation, verification, hydrator or provider reads with. */
+function unusedLoaders<Meta>(graph: GraphDef<Meta>): GraphProblem[] {
   const used = new Set<string>();
   for (const r of graph.relations.values()) {
     for (const s of r.strategies) used.add(s.loader);
@@ -84,26 +103,61 @@ export function checkGraph<Meta>(
   }
   for (const h of graph.hydrators.values()) used.add(h.loader);
   for (const p of graph.providers.values()) used.add(p.loader);
-  for (const id of graph.loaders.keys())
-    if (!used.has(id)) problem("HG_UNUSED_LOADER", `loader "${id}" is not used`);
+  return [...graph.loaders.keys()]
+    .filter((id) => !used.has(id))
+    .map((id) => problem("HG_UNUSED_LOADER", `loader "${id}" is not used`));
+}
 
+/** Entities with needed attributes their context does not carry, and no hydrator to read them. */
+function missingHydrators<Meta>(graph: GraphDef<Meta>): GraphProblem[] {
+  const out: GraphProblem[] = [];
+  for (const [entity, all] of neededAttributes(graph)) {
+    if (graph.hydrators.has(entity)) continue;
+    const context = new Set(graph.entities[entity]?.context ?? []);
+    const attrs = [...all].filter((a) => !context.has(a));
+    if (attrs.length > 0)
+      out.push(
+        problem(
+          "HG_NO_HYDRATOR",
+          `entity "${entity}" has needed attributes (${attrs.join(", ")}) and no hydrator`,
+        ),
+      );
+  }
+  return out;
+}
+
+/** Per entity, the attributes a load or a projection needs of it. */
+function neededAttributes<Meta>(graph: GraphDef<Meta>): Map<string, Set<string>> {
   const needed = new Map<string, Set<string>>();
   const need = (entity: string, attrs: readonly string[]) => {
     for (const a of attrs) needed.set(entity, (needed.get(entity) ?? new Set()).add(a));
   };
   for (const l of graph.loaders.values()) need(l.keyedBy, l.needs);
   for (const r of graph.relations.values()) for (const s of r.strategies) need(r.from, s.needs);
-  for (const [entity, all] of needed) {
-    const context = new Set(graph.entities[entity]?.context ?? []);
-    const attrs = [...all].filter((a) => !context.has(a));
-    if (attrs.length > 0 && !graph.hydrators.has(entity))
-      problem(
-        "HG_NO_HYDRATOR",
-        `entity "${entity}" has needed attributes (${attrs.join(", ")}) and no hydrator`,
-      );
-  }
+  return needed;
+}
 
-  return { problems, alternatives };
+/** Per pair with a route, the relation paths that reach the provider's entity and the route does
+ *  not use. */
+function alternatives<Meta>(
+  graph: GraphDef<Meta>,
+  bases: readonly string[],
+  maxDepth: number,
+): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const { base, provider, pair, route } of pairs(graph, bases)) {
+    if (!route) continue;
+    const used = new Set(pathsOf(route).map((p) => p.relations.join(" · ")));
+    const unused = simplePaths(graph.relations, base, provider.entity, maxDepth)
+      .map((p) => p.join(" · "))
+      .filter((p) => !used.has(p));
+    if (unused.length > 0) out[pair] = unused.sort();
+  }
+  return out;
+}
+
+function pathsOf(route: RouteDef): readonly Path<string, string>[] {
+  return route.how.kind === "path" ? [route.how] : route.how.paths;
 }
 
 /** What is wrong with a route's paths: a relation not declared, a path that does not chain from
@@ -116,24 +170,25 @@ export function routeProblems(
   relations: ReadonlyMap<string, RelationDef>,
 ): GraphProblem[] {
   const at = `${route.base} › ${route.provider}`;
-  const paths: readonly Path<string, string>[] =
-    route.how.kind === "path" ? [route.how] : route.how.paths;
   const out: GraphProblem[] = [];
-  const problem = (code: DefinitionCode, message: string) => out.push({ code, message });
-  for (const p of paths) {
+  for (const p of pathsOf(route)) {
     let at_ = base;
     for (const id of p.relations) {
       const r = relations.get(id);
       if (!r) {
-        problem("HG_UNKNOWN_RELATION", `${at}: relation "${id}" is not declared`);
+        out.push(problem("HG_UNKNOWN_RELATION", `${at}: relation "${id}" is not declared`));
         break;
       }
       if (r.from !== at_)
-        problem("HG_PATH", `${at}: "${id}" starts at "${r.from}", the path is at "${at_}"`);
+        out.push(
+          problem("HG_PATH", `${at}: "${id}" starts at "${r.from}", the path is at "${at_}"`),
+        );
       at_ = r.to;
     }
     if (at_ !== entity)
-      problem("HG_PATH", `${at}: a path ends at "${at_}", the provider is keyed by "${entity}"`);
+      out.push(
+        problem("HG_PATH", `${at}: a path ends at "${at_}", the provider is keyed by "${entity}"`),
+      );
   }
   return out;
 }
