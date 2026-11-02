@@ -74,11 +74,12 @@ function build() {
   };
 }
 
-/** Whether `slow` was loading when `f` was called, for each of `f`'s calls. */
-function whileLoading<V, W>(f: Fake<V>, slow: Fake<W>): boolean[] {
+/** Whether `slow` was loading when `f` was called, for each of `f`'s calls; `then` runs after. */
+function whileLoading<V, W>(f: Fake<V>, slow: Fake<W>, then?: () => void): boolean[] {
   const seen: boolean[] = [];
   f.is.onLoad = () => {
     seen.push(slow.inflight.now > 0);
+    then?.();
   };
   return seen;
 }
@@ -86,13 +87,21 @@ function whileLoading<V, W>(f: Fake<V>, slow: Fake<W>): boolean[] {
 describe("run: scheduling", () => {
   it("a step behind a fast read goes on while an unrelated slow read runs, however deep", async () => {
     const { graph, f } = build();
+    // the masters answer once the region's last read has started, not after a delay the fast
+    // chain could overrun on a busy machine. A scheduler that held the chain behind the masters
+    // would never start that read: the masters then answer after a second, and the test fails
+    let release!: () => void;
+    f.masters.is.until = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const stuck = setTimeout(() => release(), 1000);
     const home = whileLoading(f.home, f.masters);
-    const names = whileLoading(f.names, f.masters);
+    const names = whileLoading(f.names, f.masters, () => release());
     const durations = whileLoading(f.durations, f.masters);
     const result = await run(
       graph,
       options({ refs: refs("track", "t1"), providers: ["region", "master"] }),
-    );
+    ).finally(() => clearTimeout(stuck));
 
     // the region's second and third reads ran while the masters were still being read; the
     // masters' durations, after them

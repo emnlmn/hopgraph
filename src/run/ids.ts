@@ -28,7 +28,7 @@ export function stableJson(value: unknown): string {
   return JSON.stringify(value, (_key, v: unknown) => {
     if (typeof v === "bigint") return `${v}n`;
     if (v === null || typeof v !== "object" || Array.isArray(v)) return v;
-    return Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+    return Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : 1)));
   });
 }
 

@@ -14,6 +14,7 @@ Node 20 or later; `npm install` once.
 | `npm run typecheck`     | Type-check `src/`, `test/`, `bench/` and `examples/` with `tsc`.                              |
 | `npm run lint`          | Lint and check formatting with Biome; `npx biome check --write .` fixes what it can.          |
 | `npm test`              | Run the unit tests: `src/**/__tests__`, the examples, `test/found`, `test/regressions`.       |
+| `npm run badge`         | Check that README.md's coverage badge shows the `lines` threshold in `vitest.config.ts`.      |
 | `npm run coverage`      | Run the unit tests with v8 coverage; fail under the threshold in `vitest.config.ts`.          |
 | `npm run test:props`    | Run the property tests in `test/props` from a seed (see below).                               |
 | `npm run build`         | Compile `src/` to `dist/` with `tsc`.                                                         |

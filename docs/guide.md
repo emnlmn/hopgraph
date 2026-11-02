@@ -703,8 +703,8 @@ the failure by its code (`ECONNRESET`) and class, never its message.
 Each is a complete program, run by a test on every `npm test`, so it cannot fall behind the library.
 They run TypeScript directly (Node 22.18 or later).
 
-| Example                                          | Shows                                                                                                                    | Run                         |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | --------------------------- |
+| Example                                             | Shows                                                                                                                    | Run                         |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------------------------- |
 | [`examples/playlist.ts`](../examples/playlist.ts)   | In-memory sources read by key through a runner: batching, a derived field, a switched-off source reported as unread.     | `npm run example`           |
 | [`examples/sql.ts`](../examples/sql.ts)             | A SQL-like source: statements of N keys, a window per ref, a per-key cap reported as a cut, a failed statement, `oneOf`. | `npm run example:sql`       |
 | [`examples/warehouse.ts`](../examples/warehouse.ts) | A billed warehouse: a dry run, a gate, an approval, the bill, a resume whose price grew.                                 | `npm run example:warehouse` |

@@ -104,8 +104,7 @@ export function reachOf(graph: GraphDef<unknown>, nodes: readonly PlanNode[]): R
     reach.set(id, loaders);
     return loaders;
   };
-  for (const node of nodes) visit(node.id);
-  return (node, loader) => reach.get(node)?.has(loader) ?? false;
+  return (node, loader) => visit(node).has(loader);
 }
 
 function readsOf(graph: GraphDef<unknown>, work: Work): string[] {

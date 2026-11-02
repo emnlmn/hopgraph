@@ -28,11 +28,14 @@ export class Providers {
     provider: ProviderDef<unknown>,
     refs: readonly RefNode[],
   ): Promise<ReadonlyMap<string, ProviderAnswer>> {
-    const attrs = this.attrsOf(provider);
+    // a provider is one plan node, evaluated once per run: its attributes and memo are new here
+    const loader = loaderOf(this.ctx.graph, provider.loader);
+    const attrs = [...new Set([...loader.needs, ...loader.hints])].sort();
+    this.attrs.set(provider.id, attrs);
+    const memo = new Memo<ProviderAnswer>();
+    this.memos.set(provider.id, memo);
     const keyOf = (ref: RefNode) => identity(ref, attrs);
-    return this.memoOf(provider.id).resolve(refs, keyOf, (claimed) =>
-      this.compute(lane, provider, claimed, keyOf),
-    );
+    return memo.resolve(refs, keyOf, (claimed) => this.compute(lane, provider, claimed, keyOf));
   }
 
   /** Offers refs that reached a node still waiting for its other inputs to its loader's jobs of
@@ -52,25 +55,6 @@ export class Providers {
   answer(provider: string, ref: RefNode): ProviderAnswer | undefined {
     const attrs = this.attrs.get(provider);
     return attrs && this.memos.get(provider)?.peek(identity(ref, attrs));
-  }
-
-  private attrsOf(provider: ProviderDef<unknown>): readonly string[] {
-    let attrs = this.attrs.get(provider.id);
-    if (!attrs) {
-      const loader = loaderOf(this.ctx.graph, provider.loader);
-      attrs = [...new Set([...loader.needs, ...loader.hints])].sort();
-      this.attrs.set(provider.id, attrs);
-    }
-    return attrs;
-  }
-
-  private memoOf(provider: string): Memo<ProviderAnswer> {
-    let memo = this.memos.get(provider);
-    if (!memo) {
-      memo = new Memo<ProviderAnswer>();
-      this.memos.set(provider, memo);
-    }
-    return memo;
   }
 
   private async compute(

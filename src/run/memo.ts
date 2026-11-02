@@ -13,8 +13,8 @@ interface Entry<T> {
 }
 
 function pending<T>(): Entry<T> {
-  let resolve: (value: T) => void = () => undefined;
-  let reject: (error: unknown) => void = () => undefined;
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
   const promise = new Promise<T>((res, rej) => {
     resolve = res;
     reject = rej;

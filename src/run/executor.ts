@@ -163,13 +163,14 @@ async function runSpanned<Meta, Ctx>(
     hydration: (ref) => hydration.record(ref),
   };
 
-  let base: RefNode[] = [];
+  let base: Array<{ readonly row: string; readonly ref: RefNode }> = [];
   try {
     // the base rows are the caller's: one that fails its schemas rejects the run before any read
     const given =
       validate === "off" ? options.refs : await stop.race(validBase(def.entities, options.refs));
-    base = given.map((r) => refs.intern(r.entity, r.key, r.carries));
-    await stop.race(execute(planned, { relations, providers, reads }, byEntity(base)));
+    base = given.map((r) => ({ row: r.row, ref: refs.intern(r.entity, r.key, r.carries) }));
+    const starts = base.map((b) => b.ref);
+    await stop.race(execute(planned, { relations, providers, reads }, starts));
     // a failure held until its wave was done fails the run, even when every step has ended
     const failed = reads.failure();
     if (failed) throw failed.error;
@@ -186,16 +187,14 @@ async function runSpanned<Meta, Ctx>(
   // base rows of one ref share one answer: the same reads, the same chains from the same ref
   const answered = new Map<string, RowResult>();
   const rows = new Map<string, RowResult>();
-  options.refs.forEach((r, i) => {
-    const start = base[i];
-    if (!start) return;
+  for (const { row, ref: start } of base) {
     let result = answered.get(start.id);
     if (!result) {
       result = attribute(ledger, routes.get(start.entity) ?? [], start, show);
       answered.set(start.id, result);
     }
-    rows.set(r.row, result);
-  });
+    rows.set(row, result);
+  }
 
   const stopped = gates.list();
   const { jobs, waves } = reads.stats();
@@ -286,16 +285,6 @@ function providerId(graph: GraphDef<unknown>, provider: ProviderRef): string {
 
 function unevaluated(): never {
   throw new HopgraphError("HG_INTERNAL", "a route walked a step the run did not evaluate");
-}
-
-function byEntity(refs: readonly RefNode[]): Map<string, RefNode[]> {
-  const out = new Map<string, RefNode[]>();
-  for (const ref of refs) {
-    const group = out.get(ref.entity) ?? [];
-    if (!group.includes(ref)) group.push(ref);
-    out.set(ref.entity, group);
-  }
-  return out;
 }
 
 function routesByBase(routes: readonly PlannedRoute[]): Map<string, PlannedRoute[]> {
