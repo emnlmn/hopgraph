@@ -5,6 +5,8 @@ code after. Changes that need no edit are in [CHANGELOG.md](CHANGELOG.md) only.
 
 ## Unreleased
 
+## [0.2.1] - 2026-11-02
+
 ## [0.2.0] - 2026-11-02
 
 ### `read` and `g.ref` take a key as its schema accepts it

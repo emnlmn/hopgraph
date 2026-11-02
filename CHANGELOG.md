@@ -7,6 +7,8 @@ the guide, says which changes each kind of release may bring.
 
 ## Unreleased
 
+## [0.2.1] - 2026-11-02
+
 ### Fixed
 
 - A release is published only once the whole check passes on it: Node 20, 22 and 24, Deno and
