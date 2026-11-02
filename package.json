@@ -1,0 +1,72 @@
+{
+  "name": "hopgraph",
+  "version": "0.1.0",
+  "description": "A typed graph of entities, loaders, relations, providers and routes, for reading data across heterogeneous sources by key.",
+  "keywords": [
+    "batching",
+    "cache",
+    "entity graph",
+    "typescript"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/emnlmn/hopgraph.git"
+  },
+  "homepage": "https://github.com/emnlmn/hopgraph#readme",
+  "bugs": "https://github.com/emnlmn/hopgraph/issues",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src",
+    "!src/**/__tests__",
+    "DESIGN.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "biome check .",
+    "test": "vitest run --project unit",
+    "test:props": "vitest run --project props",
+    "coverage": "vitest run --project unit --coverage",
+    "api": "api-extractor run",
+    "api:update": "npm run build && api-extractor run --local && npm run docs:api",
+    "docs:api": "api-documenter markdown -i temp -o docs/api",
+    "smoke": "node test/smoke/smoke.js",
+    "check": "npm run typecheck && npm run lint && npm run coverage && npm run test:props && npm run build && npm run api && npm run smoke",
+    "bench": "npm run build && node --expose-gc bench/run.ts",
+    "bench:latency": "npm run build && node bench/latency.ts",
+    "example": "npm run build && node examples/playlist.ts",
+    "example:sql": "npm run build && node examples/sql.ts",
+    "example:warehouse": "npm run build && node examples/warehouse.ts",
+    "preversion": "npm run check",
+    "version": "node tools/changelog.ts stamp"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.2",
+    "@microsoft/api-documenter": "7.30.20",
+    "@microsoft/api-extractor": "7.60.1",
+    "@opentelemetry/api": "1.9.1",
+    "@types/node": "20.19.43",
+    "@vitest/coverage-v8": "4.1.12",
+    "fast-check": "4.10.2",
+    "typescript": "5.9.3",
+    "vitest": "4.1.12",
+    "zod": "4.6.7"
+  }
+}

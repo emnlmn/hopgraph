@@ -1,0 +1,34 @@
+// The public API report (api/hopgraph.api.md): every declaration `dist/index.d.ts` exports, with
+// its signature and doc comment. `npm run api` fails when the build's API differs from the
+// committed report, or when a public symbol has no doc comment; `npm run api:update` rewrites the
+// report and the API reference generated from it (docs/api/), and the diff goes into the same
+// commit as the change.
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/api-extractor/v7/api-extractor.schema.json",
+  "mainEntryPointFilePath": "<projectFolder>/dist/index.d.ts",
+  "newlineKind": "lf",
+  "compiler": { "tsconfigFilePath": "<projectFolder>/tsconfig.build.json" },
+  "apiReport": {
+    "enabled": true,
+    "reportFolder": "<projectFolder>/api/",
+    "reportTempFolder": "<projectFolder>/temp/api/"
+  },
+  "docModel": {
+    "enabled": true,
+    "apiJsonFilePath": "<projectFolder>/temp/<unscopedPackageName>.api.json"
+  },
+  "dtsRollup": { "enabled": false },
+  "tsdocMetadata": { "enabled": false },
+  "messages": {
+    "compilerMessageReporting": { "default": { "logLevel": "error" } },
+    "extractorMessageReporting": {
+      "default": { "logLevel": "error", "addToApiReportFile": true },
+      // the library has no release stages: everything exported is public
+      "ae-missing-release-tag": { "logLevel": "none", "addToApiReportFile": false },
+      // every public symbol says what it is: `npm run api` fails on one that does not
+      "ae-undocumented": { "logLevel": "error", "addToApiReportFile": false }
+    },
+    // doc comments are prose for a reader, not TSDoc
+    "tsdocMessageReporting": { "default": { "logLevel": "none" } }
+  }
+}

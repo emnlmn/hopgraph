@@ -1,0 +1,91 @@
+# Every push to main and every pull request: the whole check on each supported Node, then the
+# build imported on Deno and Bun. The property tests run twice: from the fixed seed, which is the
+# same on every run, and from a random one, printed as `[props] HOPGRAPH_SEED=…` so that a failure
+# replays anywhere with `HOPGRAPH_SEED=<seed> npm run test:props`.
+
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests, with the coverage threshold
+        run: npm run coverage
+      - name: Property tests, fixed seed
+        run: npm run test:props
+      - name: Property tests, random seed
+        run: npm run test:props
+        env:
+          HOPGRAPH_SEED: random
+      - name: Build
+        run: npm run build
+      - name: Public API against api/hopgraph.api.md
+        run: npm run api
+      - name: Smoke test of the build
+        run: npm run smoke
+
+  runtimes:
+    name: Deno and Bun
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Smoke test on Deno
+        run: deno run test/smoke/smoke.js
+      - uses: oven-sh/setup-bun@v2
+      - name: Smoke test on Bun
+        run: bun run test/smoke/smoke.js
+
+  changelog:
+    name: Changelog entry
+    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'no changelog')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      # a change to the library's code needs a line under "## Unreleased"; label the pull request
+      # "no changelog" when it changes nothing a consumer can see
+      - name: A change to src/ comes with a CHANGELOG.md entry
+        run: |
+          base="origin/${{ github.base_ref }}"
+          changed=$(git diff --name-only "$base"...HEAD)
+          if echo "$changed" | grep -v '__tests__' | grep -q '^src/' && ! echo "$changed" | grep -qx 'CHANGELOG.md'; then
+            echo "::error::src/ changed without an entry in CHANGELOG.md under \"## Unreleased\""
+            exit 1
+          fi
