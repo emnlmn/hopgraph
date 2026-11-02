@@ -8,7 +8,7 @@
 import { CostChangedError } from "hopgraph";
 import { describe, expect } from "vitest";
 import { billed, charged, Fatal, partsOf, playAll } from "./harness.ts";
-import { loaderOf, loads, unreadOf } from "./oracle.ts";
+import { gateLoader, loaderOf, loads, refusingDryRun, unreadOf } from "./oracle.ts";
 import { property } from "./property.ts";
 import { scenarios } from "./scenario.ts";
 
@@ -140,22 +140,28 @@ describe("billing", () => {
       expect(error, `${played.label}: failed with ${String(error)}`).toBeInstanceOf(
         CostChangedError,
       );
+      // every refused gate: approved short of its price, and no call of its loader from its dry
+      // run on (its job, and that loader's later ones, of later waves)
       const refused = error as CostChangedError;
-      expect(played.approved[refused.gate]).toBe(refused.approved);
-      expect(refused.priced).toBeGreaterThan(refused.approved);
-      const events = played.events;
-      let dry = events.length - 1;
-      while (
-        dry >= 0 &&
-        !(
-          events[dry]?.kind === "price" &&
-          (events[dry] as { bytes: unknown }).bytes === refused.priced
-        )
-      )
-        dry -= 1;
-      const loader = (events[dry] as { loader: string } | undefined)?.loader;
-      expect(loader, `${played.label}: no dry run priced ${refused.priced}`).toBeDefined();
-      expect(events.slice(dry).filter((e) => e.kind === "load" && e.loader === loader)).toEqual([]);
+      expect(refused.gates[0]).toEqual({
+        gate: refused.gate,
+        approved: refused.approved,
+        priced: refused.priced,
+      });
+      for (const gate of refused.gates) {
+        expect(played.approved[gate.gate]).toBe(gate.approved);
+        expect(gate.priced).toBeGreaterThan(gate.approved);
+        const loader = gateLoader(gate.gate);
+        const dry = refusingDryRun(played.events, gate);
+        expect(
+          dry,
+          `${played.label}: no dry run of ${loader} priced ${gate.priced}`,
+        ).toBeGreaterThanOrEqual(0);
+        expect(
+          played.events.slice(dry).filter((e) => e.kind === "load" && e.loader === loader),
+          `${played.label}: ${loader} called after its gate was refused`,
+        ).toEqual([]);
+      }
     }
   });
 });

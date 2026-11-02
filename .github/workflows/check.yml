@@ -1,4 +1,4 @@
-# Every push to main and every pull request: the whole check on each supported Node, then the
+# Every push to main, every pull request and every release: the whole check on each supported Node, then the
 # build imported on Deno and Bun. The property tests run twice: from the fixed seed, which is the
 # same on every run, and from a random one, printed as `[props] HOPGRAPH_SEED=…` so that a failure
 # replays anywhere with `HOPGRAPH_SEED=<seed> npm run test:props`.
@@ -9,6 +9,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # release.yml runs this same check, whole, before it publishes
+  workflow_call:
 
 permissions:
   contents: read

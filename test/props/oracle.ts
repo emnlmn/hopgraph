@@ -18,7 +18,7 @@ import {
   type RunResult,
   type UnknownReason,
 } from "hopgraph";
-import { type LoadEvent, type Played, type PriceEvent, partsOf } from "./harness.ts";
+import { type Event, type LoadEvent, type Played, type PriceEvent, partsOf } from "./harness.ts";
 import {
   decide,
   keyOf,
@@ -86,6 +86,28 @@ export const loads = (p: Played): LoadEvent[] =>
   p.events.filter((e): e is LoadEvent => e.kind === "load");
 export const prices = (p: Played): PriceEvent[] =>
   p.events.filter((e): e is PriceEvent => e.kind === "price");
+
+/** A refused gate's loader: its id up to the digest (`<loader id>:<D>`, DESIGN.md §5.4). */
+export const gateLoader = (gate: string): string => gate.slice(0, gate.lastIndexOf(":"));
+
+/**
+ * Where in the record the dry run that refused a gate is: the last one of the gate's own loader
+ * that priced what the refusal says, or -1. Not the last dry run of any loader at that price: in
+ * the refused wave another loader's job may price the same bytes, pass its approval and load
+ * before the refusal is known, which the design allows (DESIGN.md §5.4: the loads already running
+ * are aborted).
+ */
+export function refusingDryRun(
+  events: readonly Event[],
+  refused: { readonly gate: string; readonly priced: number },
+): number {
+  const loader = gateLoader(refused.gate);
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i];
+    if (e?.kind === "price" && e.loader === loader && e.bytes === refused.priced) return i;
+  }
+  return -1;
+}
 
 /** A call's answer per key, as the design says an envelope is read: a call that threw, or that
  *  reported a failed statement under `partial: "drop"`, fails every key; a key it left out failed. */

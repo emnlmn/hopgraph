@@ -7,6 +7,13 @@ the guide, says which changes each kind of release may bring.
 
 ## Unreleased
 
+### Fixed
+
+- A release is published only once the whole check passes on it: Node 20, 22 and 24, Deno and
+  Bun, with the property tests from a random seed. 0.2.0 went out while that run failed on Node 20.
+  The failure was in a property's oracle, which blamed a refused gate on another loader of its wave;
+  the library's behaviour is unchanged.
+
 ## [0.2.0] - 2026-11-02
 
 ### Fixed

@@ -1,5 +1,6 @@
-# A pushed tag `vX.Y.Z` publishes that version to npm, after the whole check passes on it. The tag
-# must match `version` in package.json. Publishing uses npm's trusted publishing (OIDC): no token
+# A pushed tag `vX.Y.Z` publishes that version to npm, only after check.yml passes on it, whole:
+# every Node, Deno and Bun, the property tests from the fixed seed and a random one. The tag must
+# match `version` in package.json. Publishing uses npm's trusted publishing (OIDC): no token
 # is stored; npmjs.com trusts this repository's `release.yml` to publish `hopgraph`, and the
 # package carries a provenance statement linking it to this commit and this run. Then the
 # version's CHANGELOG section becomes the GitHub Release.
@@ -18,7 +19,19 @@ permissions:
   id-token: write # npm trusted publishing
 
 jobs:
+  version:
+    name: The tag names the package's version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: test "${GITHUB_REF_NAME}" = "v$(node -p 'require("./package.json").version')"
+
+  check:
+    needs: version
+    uses: ./.github/workflows/check.yml
+
   publish:
+    needs: check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -28,10 +41,8 @@ jobs:
           registry-url: https://registry.npmjs.org
       # trusted publishing needs npm 11.5.1 or later
       - run: npm install -g npm@latest
-      - name: The tag names the package's version
-        run: test "${GITHUB_REF_NAME}" = "v$(node -p 'require("./package.json").version')"
       - run: npm ci
-      - run: npm run check
+      - run: npm run build
       - run: npm publish
       - name: GitHub Release, with the version's CHANGELOG section
         run: |

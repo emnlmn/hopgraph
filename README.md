@@ -123,18 +123,18 @@ The full program is [`examples/playlist.ts`](examples/playlist.ts).
 
 ## Compared with
 
-|                                                  | **Hopgraph** | GraphQL | DataLoader | Semantic layer |
-| ------------------------------------------------ | :----------: | :-----: | :--------: | :------------: |
-| Read databases, APIs and warehouses in one call  |      ✓       |    ✓    |     ✓      |       –        |
-| Avoid N+1 queries across every hop               |      ✓       | add-on  |   1 hop    |      SQL       |
-| Distinguish missing data from unreadable sources |      ✓       | `null`  |   error    |       –        |
-| Approve costly queries before they run           |      ✓       |    –    |     –      |       –        |
-| Catch wrong paths and keys at compile time       |      ✓       | codegen |     –      |       –        |
-| Document the meaning of every field              |      ✓       |    ✓    |     –      |       ✓        |
-| Run inside your app, without a server            |      ✓       |    –    |     ✓      |       –        |
+|                                                  | **Hopgraph** | GraphQL | DataLoader | Cube, dbt |
+| ------------------------------------------------ | :----------: | :-----: | :--------: | :-------: |
+| Read databases, APIs and warehouses in one call  |      ✓       |    ✓    |     ✓      |     –     |
+| Avoid N+1 queries across every hop               |      ✓       | add-on  |   1 hop    |    SQL    |
+| Distinguish missing data from unreadable sources |      ✓       | `null`  |   error    |     –     |
+| Approve costly queries before they run           |      ✓       |    –    |     –      |     –     |
+| Catch wrong paths and keys at compile time       |      ✓       | codegen |     –      |     –     |
+| Document the meaning of every field              |      ✓       |    ✓    |     –      |     ✓     |
+| Run inside your app, without a server            |      ✓       |    –    |     ✓      |     –     |
 
-Choose GraphQL when clients write the queries, and a semantic layer for dashboards. Choose Hopgraph
-when your code reads rows from many sources and must tell missing data from unread data.
+Choose GraphQL when clients write the queries, Cube or dbt for dashboards. Choose Hopgraph when
+your code reads rows from many sources and must tell missing data from unread data.
 
 ## What it doesn't do
 
