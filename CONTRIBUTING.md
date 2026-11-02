@@ -142,7 +142,7 @@ Never push to `main` without a green `npm run check`. Never `npm publish` from a
 ## Code health
 
 `make crap` gives each function's CRAP score (complexity against line coverage) and `make dry`
-lists candidate duplicate code. Both use tools outside npm, which `make setup` installs in
+lists candidate duplicate code. Both use tools outside npm, which `make tools` (or `make setup`, which runs `npm ci` first) installs in
 `.tools/` at pinned commits (needs git and python3); the first `make crap` or `make dry` runs it
 for you.
 

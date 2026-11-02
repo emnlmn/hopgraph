@@ -8,7 +8,7 @@ MAKEFLAGS += --no-print-directory
 export npm_config_loglevel := silent
 export PIP_DISABLE_PIP_VERSION_CHECK := 1
 export PIP_QUIET := 1
-.PHONY: help install setup check test props coverage lint format typecheck badge build api api-update \
+.PHONY: help install setup tools check test props coverage lint format typecheck badge build api api-update \
 	smoke bench example crap dry clean
 
 # b, c, d, g, r, z: bold, cyan, dim, green, red, reset, set only on a terminal and never under NO_COLOR
@@ -84,8 +84,10 @@ REV_crapper := 6fd92c4c9bcc56efb64a2f8743d5a2993bcfd42d
 REV_dryer := 66ff6d21a42c04afcad89c78a80066176d1294b0
 REV_mutator := a5a0cb803b66e0cdb8bf471b3b08af701d424a41
 
-setup: ## Install crapper, dryer and mutator in .tools/, at pinned commits
-	$(call step,setup,$(MAKE) $(TOOLS)/crapper/.venv $(TOOLS)/dryer/.venv $(TOOLS)/mutator/.venv)
+setup: install tools ## Everything a fresh clone needs: npm ci, then the tools
+
+tools: ## crapper, dryer and mutator in .tools/, at pinned commits
+	$(call step,tools,$(MAKE) $(TOOLS)/crapper/.venv $(TOOLS)/dryer/.venv $(TOOLS)/mutator/.venv)
 
 $(TOOLS)/%/.venv:
 	rm -rf $(TOOLS)/$*
