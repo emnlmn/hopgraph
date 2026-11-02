@@ -9,7 +9,7 @@ A base row of `entity` for `run`<!-- -->, its key typed by the entity's key sche
 **Signature:**
 
 ```typescript
-ref<N extends keyof E & string>(entity: N, key: KeyOf<E, N>, ...rest: RefRest<E, N>): TypedRef<N>;
+ref<N extends keyof E & string>(entity: N, key: KeyInputOf<E, N>, ...rest: RefRest<E, N>): TypedRef<N>;
 ```
 
 ## Parameters
@@ -51,7 +51,7 @@ key
 
 </td><td>
 
-[KeyOf](./hopgraph.keyof.md)<!-- -->&lt;E, N&gt;
+[KeyInputOf](./hopgraph.keyinputof.md)<!-- -->&lt;E, N&gt;
 
 
 </td><td>

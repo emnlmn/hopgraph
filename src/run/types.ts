@@ -14,6 +14,7 @@ import type {
   DerivedField,
   Entities,
   Entity,
+  KeyInput,
   LoadError,
   Provider,
   ProviderBase,
@@ -328,13 +329,13 @@ export interface Runner<E extends Entities, Ctx, R extends AnyRoute = AnyRoute> 
   ) => Promise<RunResult<Ps>>;
   /**
    * Reads `providers` for keys of `entity`: one base row per key, whose id in `rows` is the key's
-   * id (`String(key)` for a string or a number key, the entity's `id(key)` otherwise). The keys are
-   * typed by the entity's key schema, and an entity with `context` attributes takes
+   * id (`String(key)` for a string or a number key, the entity's `id(key)` otherwise) of the key as
+   * the run parsed it. The keys are typed by what the entity's key schema accepts, and an entity with `context` attributes takes
    * `{ key, carries }`, since only a base row brings them. Each provider needs a route from
    * `entity`: one without does not compile, the message naming the provider and the entity, and
    * an id the compiler cannot know (`string`) is refused by the run (`HG_NO_ROUTE`), keys or none,
-   * before anything is read. A key that fails its schema rejects the read with a
-   * `ValidationError` naming it by its place (`keys[2]`), never by its value; one key given twice
+   * before anything is read. A key that fails its schema, or whose id cannot be computed, rejects
+   * the read with a `ValidationError` naming it by its place (`keys[2]`), never by its value; one key given twice
    * with different carried attributes, with `HG_DUPLICATE`. The result is `run`'s, unknowns and
    * cuts included.
    */
@@ -357,12 +358,12 @@ export interface Runner<E extends Entities, Ctx, R extends AnyRoute = AnyRoute> 
  * already knows.
  */
 export type ReadKey<E extends Entities, N extends keyof E> =
-  E[N] extends Entity<infer K, infer C, infer X>
+  E[N] extends Entity<infer K, infer C, infer X, infer KIn>
     ? [X] extends [never]
-      ? K
+      ? KeyInput<K, KIn>
       : {
-          /** the key, typed by the entity's key schema */
-          readonly key: K;
+          /** the key, as the entity's key schema accepts it */
+          readonly key: KeyInput<K, KIn>;
           /** the context attributes, required, and the other carried attributes, optional */
           readonly carries: Flat<
             { readonly [A in X]: C[A] } & { readonly [A in Exclude<keyof C, X>]?: C[A] }

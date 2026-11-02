@@ -342,7 +342,7 @@ A field computed from raw fields of its own provider, as `d(inputs, compute, spe
 
 </td><td>
 
-An entity as `entity()` declares it: its key of type `K`<!-- -->, the attributes `C` a ref of it may  carry, and `X`<!-- -->, those of them only a base row or a link brings (`context`<!-- -->; none unless given,  so an entity written `Entity<K, C>` has no context, and one with context is not one).
+An entity as `entity()` declares it: its key of type `K`<!-- -->, the attributes `C` a ref of it may  carry, and `X`<!-- -->, those of them only a base row or a link brings (`context`<!-- -->; none unless given,  so an entity written `Entity<K, C>` has no context, and one with context is not one). `KIn`  is what the key's schema accepts, `K` unless it says otherwise (a schema that parses `"5"` to  5): a base row gives that, and the run hands loads, links and results the parsed `K`<!-- -->.
 
 
 </td></tr>
@@ -1078,12 +1078,34 @@ What `keep` decides on: found (maybe cut) or absent. Not the value: retention ne
 </td></tr>
 <tr><td>
 
+[KeyInput](./hopgraph.keyinput.md)
+
+
+</td><td>
+
+What a key's schema accepts, `K` when it says `unknown`<!-- -->.
+
+
+</td></tr>
+<tr><td>
+
+[KeyInputOf](./hopgraph.keyinputof.md)
+
+
+</td><td>
+
+What a base row of entity `N` gives as its key: what its key's schema accepts, when the schema  says (`z.string().transform(Number)`<!-- -->: a string); the key type when it says `unknown`<!-- -->, as a  `Schema<T>` does, so that a key is still checked.
+
+
+</td></tr>
+<tr><td>
+
 [KeyOf](./hopgraph.keyof.md)
 
 
 </td><td>
 
-The key type of entity `N` among the entities `E` of a graph.
+The key type of entity `N` among the entities `E` of a graph: what its key's schema parses to,  as loads, links and results see it.
 
 
 </td></tr>

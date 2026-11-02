@@ -9,7 +9,7 @@ The attributes a ref of entity `N` may carry, by name.
 **Signature:**
 
 ```typescript
-export type CarriedOf<E extends Entities, N extends keyof E> = E[N] extends Entity<infer _K, infer C, infer _X> ? C : never;
+export type CarriedOf<E extends Entities, N extends keyof E> = E[N] extends Entity<infer _K, infer C, infer _X, infer _KIn> ? C : never;
 ```
 **References:** [Entities](./hopgraph.entities.md)<!-- -->, [Entity](./hopgraph.entity.md)
 

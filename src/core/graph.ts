@@ -7,7 +7,7 @@
 import { routeProblems } from "./check.ts";
 import { DefinitionError } from "./errors.ts";
 import type { Budget, Coverage, Envelope, Kept, Retention } from "./outcome.ts";
-import type { Schema } from "./standard.ts";
+import type { Schema, StandardSchemaV1 } from "./standard.ts";
 
 /** Attributes by name: what a ref carries, a link holds, a row's fields are. */
 export type Attrs = Readonly<Record<string, unknown>>;
@@ -25,10 +25,13 @@ export interface EntityBase {
 
 /** An entity as `entity()` declares it: its key of type `K`, the attributes `C` a ref of it may
  *  carry, and `X`, those of them only a base row or a link brings (`context`; none unless given,
- *  so an entity written `Entity<K, C>` has no context, and one with context is not one). */
-export interface Entity<K, C extends Attrs, X extends keyof C & string = never> extends EntityBase {
+ *  so an entity written `Entity<K, C>` has no context, and one with context is not one). `KIn`
+ *  is what the key's schema accepts, `K` unless it says otherwise (a schema that parses `"5"` to
+ *  5): a base row gives that, and the run hands loads, links and results the parsed `K`. */
+export interface Entity<K, C extends Attrs, X extends keyof C & string = never, KIn = K>
+  extends EntityBase {
   /** the key's schema: base rows' keys and links' targets are checked against it */
-  readonly key: Schema<K>;
+  readonly key: StandardSchemaV1<KIn, K>;
   /** stable text of a key: cache entries, maps, the trace's digest */
   readonly id: (key: K) => string;
   /** attributes a ref may carry besides its key, produced by the entity's hydrator or by the link
@@ -46,14 +49,19 @@ type IdInput<K> = [K] extends [string | number]
 
 /** An entity: its key schema, its carried attributes, whether its key is personal (then the trace
  *  shows a digest, never the value). A key that is not a string or a number needs `id`. */
-export function entity<K, C extends Attrs = Empty, const X extends keyof C & string = never>(
+export function entity<
+  K,
+  C extends Attrs = Empty,
+  const X extends keyof C & string = never,
+  KIn = K,
+>(
   spec: {
-    readonly key: Schema<K>;
+    readonly key: StandardSchemaV1<KIn, K>;
     readonly personal?: boolean;
     readonly carries?: { readonly [A in keyof C]: Schema<C[A]> };
     readonly context?: readonly X[];
   } & IdInput<K>,
-): Entity<K, C, X> {
+): Entity<K, C, X, KIn> {
   return {
     kind: "entity",
     key: spec.key,
@@ -67,15 +75,24 @@ export function entity<K, C extends Attrs = Empty, const X extends keyof C & str
 /** A graph's entities, by name, as `hopgraph().entities({...})` takes them. */
 export type Entities = Readonly<Record<string, EntityBase>>;
 
-/** The key type of entity `N` among the entities `E` of a graph. */
+/** The key type of entity `N` among the entities `E` of a graph: what its key's schema parses to,
+ *  as loads, links and results see it. */
 export type KeyOf<E extends Entities, N extends keyof E> =
-  E[N] extends Entity<infer K, infer _C, infer _X> ? K : never;
+  E[N] extends Entity<infer K, infer _C, infer _X, infer _KIn> ? K : never;
+/** What a base row of entity `N` gives as its key: what its key's schema accepts, when the schema
+ *  says (`z.string().transform(Number)`: a string); the key type when it says `unknown`, as a
+ *  `Schema<T>` does, so that a key is still checked. */
+export type KeyInputOf<E extends Entities, N extends keyof E> =
+  E[N] extends Entity<infer K, infer _C, infer _X, infer KIn> ? KeyInput<K, KIn> : never;
+
+/** What a key's schema accepts, `K` when it says `unknown`. */
+export type KeyInput<K, KIn> = unknown extends KIn ? K : KIn;
 /** The attributes a ref of entity `N` may carry, by name. */
 export type CarriedOf<E extends Entities, N extends keyof E> =
-  E[N] extends Entity<infer _K, infer C, infer _X> ? C : never;
+  E[N] extends Entity<infer _K, infer C, infer _X, infer _KIn> ? C : never;
 /** The carried attributes of entity `N` only a base row or a link brings (its `context`). */
 export type ContextOf<E extends Entities, N extends keyof E> =
-  E[N] extends Entity<infer _K, infer _C, infer X> ? X : never;
+  E[N] extends Entity<infer _K, infer _C, infer X, infer _KIn> ? X : never;
 
 /**
  * A base row of entity `N` as `g.ref` makes it: its entity's name kept as a literal, so that a run
@@ -875,7 +892,11 @@ export interface GraphBuilder<E extends Entities, Ctx, Meta, Conn extends string
    * required, then the row's id, which is the key's id (the entity's `id(key)`) unless given; a
    * personal key's row id is then the key, as for a runner's `read`.
    */
-  ref<N extends keyof E & string>(entity: N, key: KeyOf<E, N>, ...rest: RefRest<E, N>): TypedRef<N>;
+  ref<N extends keyof E & string>(
+    entity: N,
+    key: KeyInputOf<E, N>,
+    ...rest: RefRest<E, N>
+  ): TypedRef<N>;
 
   /** Every field of every provider with its meaning, for field pickers, search and docs. */
   catalog(): readonly CatalogEntry<Meta>[];
@@ -964,6 +985,13 @@ type LoaderSpecErased = Omit<
   readonly cost?: Metered;
   readonly price?: LoaderDef["price"];
 };
+
+/** The id of a key as its schema parses it, as a run names the key: of the key given when the
+ *  schema answers later (asynchronously) or refuses it, which the run then names by its row. */
+function parsedId(def: EntityDef, key: unknown): string {
+  const parsed = def.key["~standard"].validate(key);
+  return def.id("value" in parsed ? parsed.value : key);
+}
 
 function builder<Meta>(entities: Readonly<Record<string, EntityDef>>) {
   const loaders = new Map<string, LoaderDef>();
@@ -1175,7 +1203,7 @@ function builder<Meta>(entities: Readonly<Record<string, EntityDef>>) {
 
     ref(entity: string, key: unknown, carries?: Attrs, row?: string): TypedRef<string> {
       hasEntity(entity, "ref");
-      const id = row ?? (entities[entity] as EntityDef).id(key);
+      const id = row ?? parsedId(entities[entity] as EntityDef, key);
       return { row: id, entity, key, ...(carries === undefined ? {} : { carries }) };
     },
 

@@ -9,7 +9,7 @@ The carried attributes of entity `N` only a base row or a link brings (its `cont
 **Signature:**
 
 ```typescript
-export type ContextOf<E extends Entities, N extends keyof E> = E[N] extends Entity<infer _K, infer _C, infer X> ? X : never;
+export type ContextOf<E extends Entities, N extends keyof E> = E[N] extends Entity<infer _K, infer _C, infer X, infer _KIn> ? X : never;
 ```
 **References:** [Entities](./hopgraph.entities.md)<!-- -->, [Entity](./hopgraph.entity.md)
 

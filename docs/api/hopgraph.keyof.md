@@ -4,12 +4,12 @@
 
 ## KeyOf type
 
-The key type of entity `N` among the entities `E` of a graph.
+The key type of entity `N` among the entities `E` of a graph: what its key's schema parses to,  as loads, links and results see it.
 
 **Signature:**
 
 ```typescript
-export type KeyOf<E extends Entities, N extends keyof E> = E[N] extends Entity<infer K, infer _C, infer _X> ? K : never;
+export type KeyOf<E extends Entities, N extends keyof E> = E[N] extends Entity<infer K, infer _C, infer _X, infer _KIn> ? K : never;
 ```
 **References:** [Entities](./hopgraph.entities.md)<!-- -->, [Entity](./hopgraph.entity.md)
 
