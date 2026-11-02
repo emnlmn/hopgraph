@@ -63,8 +63,8 @@ interface Projected {
 interface Draft {
   readonly strategy: StrategyDef;
   readonly loader: string;
-  /** by ref id */
-  readonly byRef: ReadonlyMap<string, Projected>;
+  /** each ref it was run on, with what it said of it */
+  readonly answers: readonly (readonly [RefNode, Projected])[];
 }
 
 /** One strategy's answer for one ref, verification included. */
@@ -201,11 +201,16 @@ export class Relations {
       }),
     );
     lane.join(lanes);
-    const candidates = drafts.flatMap((d) => [...d.byRef.values()].flatMap((p) => p.candidates));
+    const candidates = drafts.flatMap((d) => d.answers.flatMap(([, p]) => p.candidates));
     const checks = await this.verify(lane, relation, candidates);
-    return new Map(
-      refs.map((ref) => [ref.id, drafts.map((d) => finish(relation.id, d, ref, checks))]),
-    );
+    // per ref, an answer per strategy, in the strategies' order
+    const answered = new Map<string, Answered[]>();
+    for (const draft of drafts)
+      for (const [ref, projected] of draft.answers) {
+        const answer = finish(relation.id, draft, ref, projected, checks);
+        answered.set(ref.id, [...(answered.get(ref.id) ?? []), answer]);
+      }
+    return answered;
   }
 
   /** One strategy on the refs: hydrated for its needs, read, projected. */
@@ -220,22 +225,22 @@ export class Relations {
     const { ready, refused } = await this.hydration.prepare(lane, relation.from, refs, needs);
     const read = await timedRead(this.ctx, lane, relation.id, loader, ready, needs);
     // a validator may be asynchronous: until the links are checked, they may still be read
-    const projected = await this.ctx.reads.busy(
+    const answers = await this.ctx.reads.busy(
       lane,
       Promise.all(
-        refs.map((ref) => {
+        refs.map(async (ref): Promise<readonly [RefNode, Projected]> => {
           const refusal = refused.get(ref.id);
-          return refusal
+          const projected = refusal
             ? { said: refusal, candidates: [] }
-            : this.project(relation, strategy, ref, answerOf(read, ref), needs);
+            : await this.project(relation, strategy, ref, answerOf(read, ref), needs);
+          return [ref, projected];
         }),
       ),
     );
-    const byRef = new Map(refs.map((ref, i) => [ref.id, projected[i] ?? INVALID]));
-    const said = [...byRef.values()].map((p) => p.said);
-    const invalid = projected.filter((p) => p === INVALID).length;
+    const said = answers.map(([, p]) => p.said);
+    const invalid = answers.filter(([, p]) => p === INVALID).length;
     this.ctx.trace.record(relation.id, loader.id, statsOf(refs.length, read, invalid), said);
-    return { strategy, loader: loader.id, byRef };
+    return { strategy, loader: loader.id, answers };
   }
 
   /** What a strategy says of a ref from the loader's answer: its links, checked against their
@@ -375,11 +380,9 @@ function finish(
   step: string,
   draft: Draft,
   ref: RefNode,
+  projected: Projected,
   checks: ReadonlyMap<Candidate, Check> | undefined,
 ): Answered {
-  const projected = draft.byRef.get(ref.id);
-  if (!projected)
-    throw new HopgraphError("HG_INTERNAL", "a strategy left one of its refs unanswered");
   const { said, candidates } = projected;
   const record = recordOf(step, draft.loader, ref, said, projected.links);
   if (!checks || said.outcome !== "found")
