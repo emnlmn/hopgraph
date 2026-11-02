@@ -104,11 +104,17 @@ export class Relations {
     relation: RelationDef,
     refs: readonly RefNode[],
   ): Promise<ReadonlyMap<string, RelationResult>> {
-    const attrs = this.attrsOf(relation);
+    // a relation is one plan node, evaluated once per run: its attributes and memo are new here
+    const read = relation.strategies.flatMap((s) => {
+      const loader = loaderOf(this.ctx.graph, s.loader);
+      return [...loader.needs, ...loader.hints, ...s.needs, ...s.hints];
+    });
+    const attrs = [...new Set(read)].sort();
+    this.attrs.set(relation.id, attrs);
+    const memo = new Memo<RelationResult>();
+    this.memos.set(relation.id, memo);
     const keyOf = (ref: RefNode) => identity(ref, attrs);
-    return this.memoOf(relation.id).resolve(refs, keyOf, (claimed) =>
-      this.compute(lane, relation, claimed, keyOf),
-    );
+    return memo.resolve(refs, keyOf, (claimed) => this.compute(lane, relation, claimed, keyOf));
   }
 
   /**
@@ -131,28 +137,6 @@ export class Relations {
   result(relation: string, ref: RefNode): RelationResult | undefined {
     const attrs = this.attrs.get(relation);
     return attrs && this.memos.get(relation)?.peek(identity(ref, attrs));
-  }
-
-  private attrsOf(relation: RelationDef): readonly string[] {
-    let attrs = this.attrs.get(relation.id);
-    if (!attrs) {
-      const read = relation.strategies.flatMap((s) => {
-        const loader = loaderOf(this.ctx.graph, s.loader);
-        return [...loader.needs, ...loader.hints, ...s.needs, ...s.hints];
-      });
-      attrs = [...new Set(read)].sort();
-      this.attrs.set(relation.id, attrs);
-    }
-    return attrs;
-  }
-
-  private memoOf(relation: string): Memo<RelationResult> {
-    let memo = this.memos.get(relation);
-    if (!memo) {
-      memo = new Memo<RelationResult>();
-      this.memos.set(relation, memo);
-    }
-    return memo;
   }
 
   private async compute(

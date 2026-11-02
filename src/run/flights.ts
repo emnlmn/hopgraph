@@ -53,7 +53,7 @@ export class Flights implements Inflight {
    */
   start(entry: string): ((answer: KeyAnswer | undefined) => void) | undefined {
     if (this.loading.has(entry)) return undefined;
-    let land: (answer: KeyAnswer | undefined) => void = () => undefined;
+    let land!: (answer: KeyAnswer | undefined) => void;
     const flight = new Promise<KeyAnswer | undefined>((resolve) => {
       land = resolve;
     });

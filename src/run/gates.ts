@@ -62,15 +62,15 @@ export class Approvals {
     tokens: readonly string[],
     bytes: number,
   ): Promise<boolean> {
-    const ids = Object.keys(this.approved)
-      .filter((id) => id.startsWith(`${loader.id}:`))
-      .sort();
-    if (ids.length === 0) return false;
+    const approvals = Object.entries(this.approved)
+      .filter(([id]) => id.startsWith(`${loader.id}:`))
+      .sort(([a], [b]) => (a < b ? -1 : 1));
+    if (approvals.length === 0) return false;
     this.scopes ??= this.load(Object.keys(this.approved));
     const scopes = await this.scopes;
-    for (const id of ids) {
+    for (const [id, approved] of approvals) {
       const scope = scopes.get(id);
-      const left = (this.approved[id] ?? 0) - (this.spent.get(id) ?? 0);
+      const left = approved - (this.spent.get(id) ?? 0);
       if (!scope || bytes > left || !tokens.every((t) => scope.has(t))) continue;
       this.spent.set(id, (this.spent.get(id) ?? 0) + bytes);
       return true;

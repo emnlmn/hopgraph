@@ -150,7 +150,7 @@ export class Hydration {
       if (!pending.taken) pending.wave = Math.min(pending.wave, wave);
       return;
     }
-    let done: () => void = () => undefined;
+    let done!: () => void;
     const recorded = new Promise<void>((resolve) => {
       done = resolve;
     });

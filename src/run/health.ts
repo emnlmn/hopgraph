@@ -243,8 +243,8 @@ class Bucket {
         resolve(true);
       };
       const leave = () => {
-        const at = this.line.indexOf(turn);
-        if (at >= 0) this.line.splice(at, 1);
+        // a call served is out of the line and no longer listens: one that leaves is still in it
+        this.line.splice(this.line.indexOf(turn), 1);
         resolve(false);
         this.serve();
       };

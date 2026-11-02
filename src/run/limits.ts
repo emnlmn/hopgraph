@@ -31,8 +31,8 @@ export class Semaphore {
         });
       };
       const giveUp = () => {
-        const at = this.waiting.indexOf(grant);
-        if (at >= 0) this.waiting.splice(at, 1);
+        // a waiter granted is out of the queue and no longer listens: one that gives up is in it
+        this.waiting.splice(this.waiting.indexOf(grant), 1);
         resolve(undefined);
       };
       if (this.active < this.size) return grant();

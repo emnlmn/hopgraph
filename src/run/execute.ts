@@ -27,7 +27,7 @@ interface Output {
 export async function execute(
   plan: Plan,
   evaluators: Evaluators,
-  bases: ReadonlyMap<string, readonly RefNode[]>,
+  base: readonly RefNode[],
 ): Promise<void> {
   const nodes = new Map(plan.nodes.map((node) => [node.id, node]));
   const outputs = new Map<string, Promise<Output>>();
@@ -66,7 +66,7 @@ export async function execute(
     const lane = new Lane(node.id, Math.max(0, ...fed.map((f) => f.wave)));
     evaluators.reads.withdraw(node.id, lane.wave);
     const refs = distinctRefs(fed.flatMap((f) => f.refs));
-    return { refs: await perform(node.work, refs, lane, evaluators, bases), wave: lane.wave };
+    return { refs: await perform(node.work, refs, lane, evaluators, base), wave: lane.wave };
   };
 
   await Promise.all(plan.nodes.map((node) => output(node.id)));
@@ -85,11 +85,11 @@ async function perform(
   refs: readonly RefNode[],
   lane: Lane,
   { relations, providers }: Evaluators,
-  bases: ReadonlyMap<string, readonly RefNode[]>,
+  base: readonly RefNode[],
 ): Promise<readonly RefNode[]> {
   switch (work.kind) {
     case "base":
-      return bases.get(work.entity) ?? [];
+      return distinctRefs(base.filter((ref) => ref.entity === work.entity));
     case "relation": {
       const results = await relations.evaluate(lane, work.relation, refs);
       return distinctRefs([...results.values()].flatMap((r) => r.links.map((link) => link.to)));
