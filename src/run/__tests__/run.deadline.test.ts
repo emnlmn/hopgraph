@@ -17,6 +17,7 @@ import {
   newGraph,
   options,
   providerOf,
+  recorder,
   refs,
   stepsOf,
 } from "./support.ts";
@@ -395,5 +396,83 @@ describe("run: cancellation", () => {
       why: "failed",
       cause: quota,
     });
+  });
+});
+
+describe("run: a job queued behind a running one when the run stops", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("never starts: its loader is not called and no batch is traced for it", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setImmediate"] });
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // t1's own info waits for the test; the hop to t2 answers at once, so t2's info is asked of
+    // the same loader in the next wave, queued behind t1's
+    const info = fake<{ n: number }>({ found: { t1: { n: 1 }, t2: { n: 2 } }, until: held });
+    const hop = fake<{ to: string }>({ found: { t1: { to: "t2" } }, delayMs: 0 });
+    const g = newGraph();
+    const infoL = g.loader({
+      ...free,
+      id: "info",
+      keyedBy: "track",
+      connectors: { allOf: ["db"] },
+      load: info.load,
+    });
+    const hopL = g.loader({
+      ...free,
+      id: "hop",
+      keyedBy: "track",
+      connectors: { allOf: ["db"] },
+      load: hop.load,
+    });
+    const next = g.relation("track", "track", "next", {
+      cardinality: "N:1",
+      strategies: (s) => [s(hopL, { project: (_ref, v) => [{ to: v.to }] })],
+    });
+    const spec = {
+      loader: infoL,
+      temporal: "current",
+      rows: "one",
+      project: (v: { n: number }) => [{ n: v.n }],
+      raw: { n: m("N") },
+    } as const;
+    const here = g.provider("here", spec);
+    const there = g.provider("there", spec);
+    const graph = g.graph(
+      g.route("track", here, g.itself("track")),
+      g.route("track", there, g.path(next)),
+    );
+    const { tracer, spans } = recorder();
+    const caller = new AbortController();
+    const pending = run(
+      graph,
+      options({
+        refs: refs("track", "t1"),
+        providers: ["here", "there"],
+        signal: caller.signal,
+        tracer,
+      }),
+    );
+    await vi.runAllTimersAsync();
+    expect([info.loaded(), hop.loaded()]).toEqual([["t1"], ["t1"]]);
+
+    const reason = new Error("the viewer left");
+    caller.abort(reason);
+    await expect(pending).rejects.toBe(reason);
+    release();
+    await vi.runAllTimersAsync();
+
+    expect(info.loaded()).toEqual(["t1"]);
+    const batches = spans.filter((s) => s.name === "hopgraph.batch");
+    expect(
+      batches.map((s) => [s.attributes["hopgraph.loader"], s.attributes["hopgraph.wave"]]),
+    ).toEqual([
+      ["info", 1],
+      ["hop", 1],
+    ]);
   });
 });
