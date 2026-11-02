@@ -40,7 +40,7 @@ export default defineConfig({
       exclude: ["src/**/__tests__/**"],
       // the level the unit tests reached when the threshold was set: it may rise, never fall
       // (README.md's coverage badge shows `lines`: `npm run badge` checks they agree)
-      thresholds: { statements: 98.7, branches: 96, functions: 99.8, lines: 99.5 },
+      thresholds: { statements: 99.4, branches: 97.1, functions: 99.8, lines: 99.95 },
     },
   },
 });
