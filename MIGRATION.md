@@ -5,6 +5,8 @@ code after. Changes that need no edit are in [CHANGELOG.md](CHANGELOG.md) only.
 
 ## Unreleased
 
+## [0.2.0] - 2026-11-02
+
 ### `read` and `g.ref` take a key as its schema accepts it
 
 Only for an entity whose key schema states an input type other than its output: the key is given

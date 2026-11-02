@@ -7,6 +7,8 @@ the guide, says which changes each kind of release may bring.
 
 ## Unreleased
 
+## [0.2.0] - 2026-11-02
+
 ### Fixed
 
 - `runner.read` names each row by the id of its key as the run parsed it, so an entity whose key

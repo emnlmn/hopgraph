@@ -1,6 +1,6 @@
 {
   "name": "hopgraph",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Type-safe, batched reads across databases, APIs and warehouses, with honest missing-data semantics.",
   "keywords": [
     "batching",
