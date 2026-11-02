@@ -20,7 +20,7 @@ import {
   type LoaderMerge,
   type Ref,
 } from "../core/index.ts";
-import { billOf, type Calls, Purse, type Tried } from "./calls.ts";
+import { billOf, type Calls, type Price, Purse, type Tried } from "./calls.ts";
 import {
   answersOf,
   audit,
@@ -336,7 +336,8 @@ export class Jobs {
     span: Span,
   ): Promise<Admission> {
     const caps = loader.cost?.metered;
-    if (!caps || !loader.price)
+    const { price } = loader;
+    if (!caps || !price)
       return { kind: "run", how: "free", budget: { maxBytes: undefined }, retries: 0 };
     const keys = layers.flat();
     const { restriction } = this.env;
@@ -360,7 +361,7 @@ export class Jobs {
       retries,
     });
     for (const layer of known === undefined ? layers : []) {
-      const pricing = await this.price(loader, layer, stop, span);
+      const pricing = await this.price(loader, price, layer, stop, span);
       retries += pricing.retries;
       const { call } = pricing;
       // a dry run the run stopped waiting for prices nothing: no load starts any more
@@ -410,6 +411,7 @@ export class Jobs {
   /** One dry run, under its own span. */
   private async price(
     loader: LoaderDef,
+    price: Price,
     layer: readonly LoaderKey[],
     stop: Stop,
     span: Span,
@@ -421,7 +423,14 @@ export class Jobs {
     );
     try {
       const views = layer.map((k) => k.view);
-      const pricing = await this.env.calls.price(loader, views, this.env.held(loader), stop, dry);
+      const pricing = await this.env.calls.price(
+        loader,
+        price,
+        views,
+        this.env.held(loader),
+        stop,
+        dry,
+      );
       const { call } = pricing;
       ended(dry, call.kind, pricing.attempts);
       if (call.kind === "threw") dry.recordError(call.error);
