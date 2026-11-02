@@ -5,3 +5,4 @@ temp/
 *.tsbuildinfo
 .serena/
 .metrics/
+.tools/

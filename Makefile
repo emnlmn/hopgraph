@@ -6,7 +6,9 @@ SHELL := /bin/bash
 .SILENT:
 MAKEFLAGS += --no-print-directory
 export npm_config_loglevel := silent
-.PHONY: help install check test props coverage lint format typecheck badge build api api-update \
+export PIP_DISABLE_PIP_VERSION_CHECK := 1
+export PIP_QUIET := 1
+.PHONY: help install setup check test props coverage lint format typecheck badge build api api-update \
 	smoke bench example crap dry clean
 
 # b, c, d, g, r, z: bold, cyan, dim, green, red, reset, set only on a terminal and never under NO_COLOR
@@ -74,13 +76,29 @@ example: build ## Run the three examples
 	$(call step,sql,node examples/sql.ts)
 	$(call step,warehouse,node examples/warehouse.ts)
 
-# crapper and dryer are separate tools (github.com/unclebob/crapper, /dryer), not dependencies
-crap: ## CRAP score per function, with line coverage (needs crapper)
-	$(call step,coverage,npx vitest run --project unit --coverage --coverage.reporter=lcov >/dev/null)
-	$(call step,crap,crapper --use-existing-coverage src)
+# crapper, dryer and mutator (github.com/unclebob) are not npm dependencies: `make setup` clones
+# them into .tools/ at the commits below, and each makes its own .venv on first run (needs git and
+# python3). Bump a commit to update a tool.
+TOOLS := .tools
+REV_crapper := 6fd92c4c9bcc56efb64a2f8743d5a2993bcfd42d
+REV_dryer := 66ff6d21a42c04afcad89c78a80066176d1294b0
+REV_mutator := a5a0cb803b66e0cdb8bf471b3b08af701d424a41
 
-dry: ## Candidate duplicate code (needs dryer)
-	$(call step,dry,dryer src)
+setup: ## Install crapper, dryer and mutator in .tools/, at pinned commits
+	$(call step,setup,$(MAKE) $(TOOLS)/crapper/.venv $(TOOLS)/dryer/.venv $(TOOLS)/mutator/.venv)
+
+$(TOOLS)/%/.venv:
+	rm -rf $(TOOLS)/$*
+	git clone -q https://github.com/unclebob/$*.git $(TOOLS)/$*
+	git -C $(TOOLS)/$* -c advice.detachedHead=false checkout -q $(REV_$*)
+	$(TOOLS)/$*/$* --help >/dev/null
+
+crap: $(TOOLS)/crapper/.venv ## CRAP score per function, with line coverage
+	$(call step,coverage,npx vitest run --project unit --coverage --coverage.reporter=lcov >/dev/null)
+	$(call step,crap,$(TOOLS)/crapper/crapper --use-existing-coverage src)
+
+dry: $(TOOLS)/dryer/.venv ## Candidate duplicate code
+	$(call step,dry,$(TOOLS)/dryer/dryer src)
 
 clean: ## Remove build, coverage and metrics output
 	$(call step,clean,rm -rf dist coverage temp .metrics)
