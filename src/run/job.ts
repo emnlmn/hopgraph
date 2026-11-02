@@ -15,12 +15,13 @@ import {
   type Budget,
   CostChangedError,
   type EntityDef,
+  HopgraphError,
   type LoadError,
   type LoaderDef,
   type LoaderMerge,
   type Ref,
 } from "../core/index.ts";
-import { billOf, type Calls, type Price, Purse, type Tried } from "./calls.ts";
+import { billOf, type Calls, type Made, type Price, Purse, type Tried } from "./calls.ts";
 import {
   answersOf,
   audit,
@@ -129,8 +130,9 @@ export class Jobs {
     span: Span,
   ): Promise<Done> {
     const stop = stops.job;
-    // key order, so that the batches do not depend on which step asked first
-    const keys = [...asked].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    // key order, so that the batches do not depend on which step asked first; no two keys of a job
+    // share an id (reads.ts keeps a job's keys by id)
+    const keys = [...asked].sort((a, b) => (a.id < b.id ? -1 : 1));
     const hits = new Set<string>();
     const late = (): Done => {
       for (const k of keys) if (!settled.has(k.id)) settled.set(k.id, DEADLINE);
@@ -307,7 +309,7 @@ export class Jobs {
   ): Promise<void> {
     const writes = [];
     for (const [readId, group] of members) {
-      const answer = settled.get(readId) ?? FAILED;
+      const answer = answered(settled.get(readId));
       settled.delete(readId);
       for (const k of group) {
         const own = narrow(merge, answer, k.view);
@@ -368,8 +370,7 @@ export class Jobs {
       if (call.kind === "late" || stop.stopped()) return refused("stopped", DEADLINE);
       if (call.kind === "open")
         return refused("open", open(call.connectors), [opened(keys.length)]);
-      if (call.kind !== "done")
-        return refused("failed", FAILED, call.kind === "threw" ? [call.error] : []);
+      if (call.kind === "threw") return refused("failed", FAILED, [call.error]);
       // a dry run that answered nonsense prices nothing: its keys failed, nothing is billed
       if (!Number.isFinite(call.value) || call.value < 0) return refused("failed", FAILED);
       bytes += call.value;
@@ -389,9 +390,8 @@ export class Jobs {
     try {
       decision = decide(caps, bytes, gate, approval);
     } catch (error) {
-      if (!(error instanceof CostChangedError)) throw error;
       // the run fails once every approval of this wave is decided, naming them all (reads.ts)
-      this.env.refuse(wave, error);
+      this.env.refuse(wave, costChanged(error));
       return refused("refused", FAILED);
     }
     if (decision.kind === "run")
@@ -415,7 +415,7 @@ export class Jobs {
     layer: readonly LoaderKey[],
     stop: Stop,
     span: Span,
-  ): Promise<Tried<number>> {
+  ): Promise<Tried<number, Made<number>>> {
     const dry = this.env.tracer.startSpan(
       "hopgraph.price",
       { "hopgraph.loader": loader.id, "hopgraph.keys": layer.length },
@@ -493,8 +493,8 @@ export class Jobs {
         stop,
         one,
       );
-      const byKeyId = new Map(batch.map((k) => [k.ref.keyId, k]));
-      const asked = [...byKeyId.keys()];
+      // a batch holds each key id once (layersOf)
+      const asked = batch.map((k) => k.ref.keyId);
       const envelope = call.kind === "done" ? call.value : undefined;
       const idOf = entityOf(this.env.entities, loader.keyedBy).id;
       const answers =
@@ -507,9 +507,8 @@ export class Jobs {
       const audited = envelope && this.env.strict ? audit(asked, idOf, envelope) : undefined;
       for (const keyId of audited?.conflicted ?? []) answers.set(keyId, FAILED);
       const writes = [];
-      for (const [keyId, answer] of answers) {
-        const k = byKeyId.get(keyId);
-        if (!k) continue;
+      for (const k of batch) {
+        const answer = answered(answers.get(k.ref.keyId));
         settled.set(k.id, answer);
         const kept = keepable(answer, loader.keep);
         if (kept) writes.push({ key: k.entry, ...kept });
@@ -556,6 +555,21 @@ export class Jobs {
       write.end();
     }
   }
+}
+
+/** A key's answer once its job loaded: every key a call asks gets one (envelope.ts `answersOf`),
+ *  and so does every merged read, so a missing one is the executor's bug, refused as such rather
+ *  than kept as if the source had failed. */
+export function answered(answer: KeyAnswer | undefined): KeyAnswer {
+  if (answer === undefined)
+    throw new HopgraphError("HG_INTERNAL", "a job left one of its keys unanswered");
+  return answer;
+}
+
+/** What `decide` threw: the approval the price grew past. Anything else is a bug and goes on. */
+export function costChanged(error: unknown): CostChangedError {
+  if (error instanceof CostChangedError) return error;
+  throw error;
 }
 
 /** How a call ended, on its span: its outcome and the attempts that got a verdict. */
