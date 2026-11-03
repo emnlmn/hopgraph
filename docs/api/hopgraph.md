@@ -1371,7 +1371,7 @@ Why a source was not read at all for this viewer or deployment.
 
 </td><td>
 
-`off`<!-- -->: no schema runs. `boundaries`<!-- -->: base rows, links and hydrations. `strict`<!-- -->: also every  envelope a load returns (envelope.ts).
+`off`<!-- -->: no schema runs. `boundaries`<!-- -->: base rows, links and hydrations. `strict`<!-- -->: also every  envelope a load returns (envelope.ts) and the values a provider projects (providers.ts).
 
 
 </td></tr>

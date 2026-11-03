@@ -5,6 +5,20 @@ code after. Changes that need no edit are in [CHANGELOG.md](CHANGELOG.md) only.
 
 ## Unreleased
 
+### A strict run checks a provider's field values against their schemas
+
+Only for a graph whose provider fields declare a `schema` and a run that validates `"strict"`. The
+values are now read as the schema parses them, and a ref with a value its schema refuses is
+`unknown: failed`. A schema that described the value the application wanted rather than the one the
+source gives now takes what the source gives, or the field leaves it out.
+
+```ts
+// before: never run, so a count the source gives as text ("12") was read as text
+raw: { streams: { meta: { label: "Streams" }, schema: z.number() } },
+// after: the schema takes the text and the run reads 12
+raw: { streams: { meta: { label: "Streams" }, schema: z.coerce.number() } },
+```
+
 ## [0.2.1] - 2026-11-02
 
 ## [0.2.0] - 2026-11-02

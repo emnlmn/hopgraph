@@ -2,8 +2,10 @@
 // Standard Schema values (core/standard.ts); a run calls them on what comes from outside it: the
 // base rows' keys and carried attributes before anything is read, then what a source says through
 // a projection: a link's target key, its attributes and the target's carried attributes, and what a
-// hydrator projects. A value that passes is replaced by what its schema parsed, so a key a schema
-// coerces is read as the type the graph declares. An attribute the entity does not declare fails.
+// hydrator projects; under `strict`, also the values a provider projects, against their fields'
+// schemas. A value that passes is replaced by what its schema parsed, so a key a schema coerces is
+// read as the type the graph declares. An attribute the entity does not declare fails; a field
+// without a schema is not checked.
 //
 // A base row that fails rejects the run, named by row id and field: the caller sent it. A projected
 // value that fails is the source's: the key it came through is `unknown: failed`, counted under the
@@ -25,7 +27,7 @@ import type { BaseRef } from "./types.ts";
 type Out = LinkOut<unknown, Attrs, Attrs>;
 
 /** `off`: no schema runs. `boundaries`: base rows, links and hydrations. `strict`: also every
- *  envelope a load returns (envelope.ts). */
+ *  envelope a load returns (envelope.ts) and the values a provider projects (providers.ts). */
 export type Validation = "off" | "boundaries" | "strict";
 
 type Parsed = { readonly ok: true; readonly value: unknown } | { readonly ok: false };
@@ -97,6 +99,26 @@ export async function validBase(
 export async function validCarried(entity: EntityDef, attrs: Attrs): Promise<Attrs | undefined> {
   const { value, failed } = await carried(entity, attrs);
   return failed.length > 0 ? undefined : value;
+}
+
+/** A provider row's values as their fields' schemas parse them; `undefined` when one fails. A
+ *  field without a schema, or that the row does not hold or holds as undefined, is not checked:
+ *  a field may be optional, and the schema says what a value is, not whether there is one. */
+export async function validFields(
+  fields: Readonly<Record<string, { readonly schema?: Schema<unknown> | undefined }>>,
+  row: Attrs,
+): Promise<Attrs | undefined> {
+  const checked = Object.entries(fields).flatMap(([name, { schema }]) =>
+    schema && Object.hasOwn(row, name) && row[name] !== undefined ? [{ name, schema }] : [],
+  );
+  const parsed = await Promise.all(checked.map(({ name, schema }) => parse(schema, row[name])));
+  const value: Record<string, unknown> = { ...row };
+  for (const [i, { name }] of checked.entries()) {
+    const p = parsed[i];
+    if (!p?.ok) return undefined;
+    value[name] = p.value;
+  }
+  return value;
 }
 
 /** A projection's links, parsed: target key, link attributes (when the relation declares their

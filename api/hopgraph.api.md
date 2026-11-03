@@ -441,8 +441,8 @@ export function hopgraph<Ctx, Meta, Conn extends string = string>(): {
 
 // @public
 export type HopgraphCode = DefinitionCode
-/** a value does not match its schema (base rows: `ValidationError`; a link or a hydration:
-*  the trace's failure code of the keys it failed) */
+/** a value does not match its schema (base rows: `ValidationError`; a link, a hydration or,
+*  under `strict`, a provider's field: the trace's failure code of the keys it failed) */
 | "HG_INVALID"
 /** an approved gate priced higher on resume */
 | "HG_COST_CHANGED"

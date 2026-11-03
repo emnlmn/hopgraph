@@ -7,6 +7,16 @@ the guide, says which changes each kind of release may bring.
 
 ## Unreleased
 
+### Changed
+
+- A run that validates `"strict"` checks the values a provider projects against their fields'
+  schemas, which no run called before: in each row a ref keeps under the rows cap, each raw value as
+  projected, then each derived value as computed from the parsed raw ones. A value that passes is
+  read as its schema parsed it; a ref with a value that fails is `unknown: failed` for that
+  provider, with no rows, counted under `HG_INVALID` in the provider's trace. A field the row does
+  not hold, or holds as `undefined`, is not checked. `"boundaries"` (the default) and `"off"` run
+  no field schema, as before.
+
 ## [0.2.1] - 2026-11-02
 
 ### Fixed

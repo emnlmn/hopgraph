@@ -327,7 +327,8 @@ verification's and its provider's loaders, and the hydrator of an entity whose a
 need), so a node that ends up not reading a loader (for example, a fallback whose earlier strategy
 found) holds that loader's job back longer than needed, never less. Work between two reads is
 microtasks, except an asynchronous validator, which the step declares so that it holds back what
-it could still add keys to.
+it could still add keys to. A provider's validators run after its read, and nothing reads after a
+provider, so they hold nothing back.
 
 The rule used to be a barrier: wave n started once every read of wave n − 1 had ended, so a step
 behind a fast read waited for the slowest read of its wave, related or not, and so did every wave
@@ -548,9 +549,9 @@ Base rows that share a ref share one answer.
 
 ### 5.6 Validation
 
-Schemas are the graph's declaration of what a key, a carried attribute and a link's attributes
-are. A run checks against them what enters it from outside: the base rows, from its caller, and
-what sources say through projections. A call's `validate` chooses:
+Schemas are the graph's declaration of what a key, a carried attribute, a link's attributes and,
+optionally, a provider's field are. A run checks against them what enters it from outside: the
+base rows, from its caller, and what sources say through projections. A call's `validate` chooses:
 - `boundaries` (the default). The base rows' keys and carried attributes, before anything is read.
   A row that fails, or that carries an attribute its entity does not declare, rejects the run with
   a `ValidationError` naming each row id and field: the caller sent it, and reading around it would
@@ -562,14 +563,25 @@ what sources say through projections. A call's `validate` chooses:
   "found" with a link missing would claim more than was read.
 - `strict`. Also every envelope a load returns: a key it puts in two buckets is failed instead of
   trusted, and keys not asked, contradicted or missing are reported as failure codes. A key not
-  mentioned is failed in every mode (§3.1).
+  mentioned is failed in every mode (§3.1). And the values a provider projects, against their
+  fields' schemas: in each row a ref keeps under the rows cap (§5.8), each raw value as projected,
+  then each derived value as computed from the parsed raw ones. A field without a schema is not
+  checked, nor one the row does not hold or holds as `undefined`: a field may be optional. A ref
+  with a value that fails is `unknown: failed` for that provider, with no rows (as for links, the
+  whole projection fails), counted in the provider's trace under `HG_INVALID`; its other providers
+  and the other refs are as they were. A row the cap cut is not answered, so it is not checked, and
+  a ref the provider did not find has no row to check. The loader's answer is cached as it came, so
+  each strict run checks the projection again and a run that is not strict reads it as it came. A
+  field's value steers no read, and there is one per field per row: checking them is the caller's
+  choice, not the default.
 - `off`. No schema runs; the values are taken as they come.
 
 A value that passes is replaced by what its schema parsed, so the type the graph declares is the
 type a load reads (a coerced key, a trimmed string). A schema's issue messages are never kept,
 since they may quote the value. An asynchronous validator is awaited; one that throws fails its
-value. Validation costs a call per value at the boundaries; `off` is for a caller that already
-validated what it sends and trusts its sources.
+value. Validation costs a call per value at the boundaries, and under `strict` one per field value
+of every row kept; `off` is for a caller that already validated what it sends and trusts its
+sources.
 
 ### 5.7 Failing sources
 
@@ -930,8 +942,9 @@ they are complete.
 
 ## 11. Limits and open questions
 
-- **Field schemas are never called.** Keys, carried attributes and links are validated (§5.6);
-  the values a provider projects are not. A field's schema is optional and is not in the catalog.
+- **Field schemas run only under `strict`** (§5.6). At the default level, keys, carried
+  attributes and links are validated and the values a provider projects are taken as they come. A
+  field's schema is optional and is not in the catalog.
 - **A run asks for providers, not fields.** Every field of a requested provider is computed and
   returned; choosing fields is the consumer's.
 - **Only loaders read ctx.** A strategy declares needs and hints, not ctx values; a window that
@@ -991,7 +1004,10 @@ that approve them exactly, generously or short. On every run they hold that:
   attempted more than its policy allows, every retry is in the trace, and no metered job bills
   past its budget; with retries enough, the answer is that of sources that never failed; with
   breakers that open, a key reached through unions is never absent where it was found (§5.7);
-- a run fails with the earliest wave's failure, the same under the barrier (§5.4).
+- a run fails with the earliest wave's failure, the same under the barrier (§5.4);
+- field schemas that accept every value, at once or later, change nothing under `strict`, its jobs
+  and waves included; ones that refuse every value change nothing under `boundaries` or `off`; and
+  under `strict` a field that refuses its values fails exactly the refs whose rows hold it (§5.6).
 
 Every finding is fixed, and each fix keeps its case in `test/regressions`, with a header that says
 how it was found. Among the cases the property tests led to: the order a wave's keys were batched

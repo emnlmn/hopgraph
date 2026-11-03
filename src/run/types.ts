@@ -232,7 +232,10 @@ export type RunCall<
    * through projections: links' target keys, attributes and carried attributes, and what a
    * hydrator projects (a key whose projection fails is unknown: failed, code `HG_INVALID`).
    * `strict`: also every envelope a load returns; a key it puts in two buckets is failed, and keys
-   * not asked, in two buckets or missing are reported as failure codes. `off`: no schema runs.
+   * not asked, in two buckets or missing are reported as failure codes. And each value a provider
+   * projects, in the rows a ref keeps, against its field's schema, a derived one as computed from
+   * the parsed raw ones (a ref with a value that fails is unknown: failed, code `HG_INVALID`, with
+   * no rows). `off`: no schema runs.
    */
   readonly validate?: Validation;
 } & (undefined extends Ctx

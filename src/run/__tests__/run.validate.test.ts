@@ -10,8 +10,10 @@ import { z } from "zod";
 import { type Envelope, entity, hopgraph, type Schema, ValidationError } from "../../core/index.ts";
 import { type RunOptions, run } from "../index.ts";
 import {
+  type Behaviour,
   type Conn,
   type Ctx,
+  dump,
   fake,
   free,
   MemoryCache,
@@ -19,6 +21,8 @@ import {
   m,
   options,
   providerOf,
+  refs,
+  rowsOf,
   stepsOf,
   traceOf,
 } from "./support.ts";
@@ -353,5 +357,403 @@ describe("run: strict envelopes", () => {
     expect(providerOf(result, "t1", "plays").outcome).toBe("found");
     expect(providerOf(result, "t2", "plays").unknown).toEqual([{ reason: "failed" }]);
     expect(traceOf(result, "provider:plays").errors).toEqual([]);
+  });
+});
+
+// What a provider projects (a field's schema, DESIGN.md §5.6). Under `strict` each value a kept row
+// holds is checked against its field's schema and read as the schema parsed it; a ref with a value
+// that fails is unknown `failed`, with no rows, counted under `HG_INVALID`. Under `boundaries` and
+// `off` no field schema runs.
+
+type Play = {
+  readonly title: string;
+  readonly streams: number;
+  readonly note?: string | undefined;
+  readonly market?: string | undefined;
+};
+
+/** What a source says where its type says a number: text. */
+const text = (s: string) => s as unknown as number;
+
+const CHART: Readonly<Record<string, readonly Play[]>> = {
+  // passes only as its schemas parse it: padded titles, numbers as text
+  t1: [{ title: "  Midnight  ", streams: text("12"), note: " live " }],
+  // holds no note and no market
+  t2: [{ title: "Dawn", streams: text("7") }],
+  // holds them as undefined
+  t3: [{ title: "Dusk", streams: text("7"), note: undefined, market: undefined }],
+  // streams is not a number
+  t4: [{ title: "Noon", streams: text("LOTS-0042") }],
+  // a row that passes, then one whose title is empty once trimmed
+  t5: [
+    { title: "Rise", streams: text("1") },
+    { title: "   ", streams: text("2") },
+  ],
+  // every raw value passes; the derived `next` (2.5) is not an integer
+  t6: [{ title: "Dawn", streams: text("1.5") }],
+  // a market the asynchronous validator accepts, and one it refuses
+  t7: [{ title: "Rise", streams: text("1"), market: "web" }],
+  t8: [{ title: "Rise", streams: text("1"), market: "MKT-0042" }],
+};
+
+/** A chart per song, read by two providers of one loader: the rows of `plays` have fields with
+ *  schemas (a coerced number, trimmed texts, one optional, one that answers later) and fields
+ *  derived from them; `count` has one field with a schema, to see that a failure is its provider's. */
+function buildChart(
+  found: Readonly<Record<string, readonly Play[]>>,
+  own: { readonly rows?: number; readonly unknown?: Behaviour<readonly Play[]>["unknown"] } = {},
+) {
+  const chart = fake<readonly Play[]>({
+    found,
+    ...(own.unknown === undefined ? {} : { unknown: own.unknown }),
+  });
+  const g = hopgraph<Ctx, Meta, Conn>().entities({ song: entity({ key: z.string() }) });
+  const chartL = g.loader({
+    ...free,
+    id: "chart",
+    keyedBy: "song",
+    connectors: { allOf: ["db"] },
+    load: chart.load,
+  });
+  const graph = g.graph(
+    g.route(
+      "song",
+      g.provider("plays", {
+        loader: chartL,
+        temporal: "historical",
+        rows: "many",
+        project: (v) => v,
+        raw: {
+          title: { ...m("Title"), schema: z.string().trim().min(1) },
+          streams: { ...m("Streams"), schema: z.coerce.number() },
+          note: { ...m("Note"), schema: z.string().trim().min(1) },
+          market: { ...m("Market"), schema: later((v): v is string => v === "web") },
+        },
+        derived: (d) => ({
+          next: d(["streams"], ({ streams }) => streams + 1, {
+            ...m("Next"),
+            schema: z.number().int(),
+          }),
+          slug: d(["title"], ({ title }) => ` ${title.toLowerCase()} `, {
+            ...m("Slug"),
+            schema: z.string().trim(),
+          }),
+          shout: d(["note"], ({ note }) => note?.toUpperCase(), {
+            ...m("Shout"),
+            schema: z.string(),
+          }),
+        }),
+        ...(own.rows === undefined ? {} : { caps: { rows: own.rows } }),
+      }),
+      g.itself("song"),
+    ),
+    g.route(
+      "song",
+      g.provider("count", {
+        loader: chartL,
+        temporal: "historical",
+        rows: "one",
+        project: (v) => [{ n: v.length }],
+        raw: { n: { ...m("Count"), schema: z.number().int() } },
+      }),
+      g.itself("song"),
+    ),
+  );
+  const ask = (
+    keys: readonly string[],
+    over: Partial<RunOptions<Ctx>> = {},
+    providers = ["plays"],
+  ) => run(graph, options({ refs: refs("song", ...keys), providers, ...over }));
+  return { ask, chart };
+}
+
+const failed = [{ reason: "failed" }];
+
+describe("run: strict field values", () => {
+  it("boundaries (the default) and off: no field schema runs, values are read as the source said them", async () => {
+    for (const over of [{}, { validate: "boundaries" }, { validate: "off" }] as const) {
+      const { ask } = buildChart(CHART);
+      const result = await ask(["t1", "t4"], over);
+
+      const p = providerOf(result, "t1", "plays");
+      expect(rowsOf(p)[0]?.fields, JSON.stringify(over)).toEqual({
+        title: "  Midnight  ",
+        streams: "12",
+        note: " live ",
+        next: "121",
+        slug: "   midnight   ",
+        shout: " LIVE ",
+      });
+      // a value no schema would take is as found as any other
+      expect(providerOf(result, "t4", "plays").outcome).toBe("found");
+      expect(rowsOf(providerOf(result, "t4", "plays"))[0]?.fields.streams).toBe("LOTS-0042");
+      expect(traceOf(result, "provider:plays", "chart").errors).toEqual([]);
+    }
+  });
+
+  it("strict: a raw value that passes is read as its schema parsed it: a coerced number, a trimmed text", async () => {
+    const { ask } = buildChart(CHART);
+    const result = await ask(["t1"], { validate: "strict" });
+
+    const p = providerOf(result, "t1", "plays");
+    expect(p.outcome).toBe("found");
+    expect(rowsOf(p)[0]?.fields).toMatchObject({ title: "Midnight", streams: 12, note: "live" });
+    expect(traceOf(result, "provider:plays", "chart").errors).toEqual([]);
+  });
+
+  it("strict: a derived field is computed from the parsed raw values, then read as its own schema parsed it", async () => {
+    const { ask } = buildChart(CHART);
+    const result = await ask(["t1"], { validate: "strict" });
+
+    // 12 + 1 from the number, not "12" + 1; "LIVE" from the trimmed note; the padded slug trimmed
+    expect(rowsOf(providerOf(result, "t1", "plays"))[0]?.fields).toMatchObject({
+      next: 13,
+      slug: "midnight",
+      shout: "LIVE",
+    });
+  });
+
+  it("strict: a field the row does not hold, or holds as undefined, is not checked, and nor is a derived value that is undefined", async () => {
+    const { ask } = buildChart(CHART);
+    const result = await ask(["t2", "t3"], { validate: "strict" });
+
+    for (const [row, title] of [
+      ["t2", "Dawn"],
+      ["t3", "Dusk"],
+    ] as const) {
+      const p = providerOf(result, row, "plays");
+      expect(p.outcome, row).toBe("found");
+      const fields = rowsOf(p)[0]?.fields;
+      expect(fields, row).toMatchObject({ title, streams: 7 });
+      expect(fields?.note, row).toBeUndefined();
+      expect(fields?.shout, row).toBeUndefined();
+    }
+    expect(traceOf(result, "provider:plays", "chart").errors).toEqual([]);
+  });
+
+  it("strict: a raw value that fails its schema makes its ref unknown failed with no rows, even when other rows of it passed; HG_INVALID counts the refs", async () => {
+    const { ask } = buildChart(CHART);
+    const result = await ask(["t4", "t5"], { validate: "strict" });
+
+    for (const bad of ["t4", "t5"]) {
+      const p = providerOf(result, bad, "plays");
+      expect(p.outcome, bad).toBe("unknown");
+      expect(p.unknown, bad).toEqual(failed);
+      expect(p.rows, bad).toEqual([]);
+      expect(stepsOf(result, bad, "provider:plays", "chart"), bad).toMatchObject([
+        { outcome: "unknown", reason: { reason: "failed" } },
+      ]);
+    }
+    expect(traceOf(result, "provider:plays", "chart").errors).toEqual([
+      { code: "HG_INVALID", keys: 2 },
+    ]);
+  });
+
+  it("strict: a derived value that fails its schema fails the ref the same way", async () => {
+    const { ask } = buildChart(CHART);
+    const result = await ask(["t6"], { validate: "strict" });
+
+    const p = providerOf(result, "t6", "plays");
+    expect(p.outcome).toBe("unknown");
+    expect(p.unknown).toEqual(failed);
+    expect(p.rows).toEqual([]);
+    expect(stepsOf(result, "t6", "provider:plays", "chart")).toMatchObject([
+      { outcome: "unknown", reason: { reason: "failed" } },
+    ]);
+    expect(traceOf(result, "provider:plays", "chart").errors).toEqual([
+      { code: "HG_INVALID", keys: 1 },
+    ]);
+  });
+
+  it("strict: an asynchronous validator is awaited, for the value it accepts and for the one it refuses", async () => {
+    const { ask } = buildChart(CHART);
+    const result = await ask(["t7", "t8"], { validate: "strict" });
+
+    const ok = providerOf(result, "t7", "plays");
+    expect(ok.outcome).toBe("found");
+    expect(rowsOf(ok)[0]?.fields.market).toBe("web");
+    const bad = providerOf(result, "t8", "plays");
+    expect(bad.outcome).toBe("unknown");
+    expect(bad.unknown).toEqual(failed);
+    expect(bad.rows).toEqual([]);
+    expect(traceOf(result, "provider:plays", "chart").errors).toEqual([
+      { code: "HG_INVALID", keys: 1 },
+    ]);
+  });
+
+  it("strict: a ref that fails leaves the other refs and the other providers of its own as they were, and the run goes on", async () => {
+    const { ask } = buildChart(CHART);
+    const result = await ask(["t1", "t4"], { validate: "strict" }, ["plays", "count"]);
+
+    expect(result.status).toBe("complete");
+    expect(providerOf(result, "t4", "plays").outcome).toBe("unknown");
+    expect(rowsOf(providerOf(result, "t1", "plays"))[0]?.fields).toMatchObject({ streams: 12 });
+    for (const row of ["t1", "t4"]) {
+      const p = providerOf(result, row, "count");
+      expect(p.outcome, row).toBe("found");
+      expect(rowsOf(p)[0]?.fields, row).toEqual({ n: 1 });
+    }
+    expect(traceOf(result, "provider:plays", "chart").errors).toEqual([
+      { code: "HG_INVALID", keys: 1 },
+    ]);
+    expect(traceOf(result, "provider:count", "chart").errors).toEqual([]);
+  });
+
+  it("strict: only the rows the cap kept are checked, so a bad value in a row it cut leaves the ref found, cut", async () => {
+    for (const [cap, own, over] of [
+      ["the run's", {}, { caps: { rows: 1 } }],
+      ["the provider's", { rows: 1 }, {}],
+    ] as const) {
+      const { ask } = buildChart(CHART, own);
+      const result = await ask(["t5"], { validate: "strict", ...over });
+
+      const p = providerOf(result, "t5", "plays");
+      expect(p.outcome, cap).toBe("found");
+      expect(rowsOf(p).map((r) => r.fields.title)).toEqual(["Rise"]);
+      expect(p.cut).toEqual([{ kind: "capped", cap: "rows", limit: 1 }]);
+      expect(traceOf(result, "provider:plays", "chart").errors).toEqual([]);
+    }
+    // the same value in a row the cap keeps fails the ref
+    const { ask } = buildChart(CHART, { rows: 2 });
+    const result = await ask(["t5"], { validate: "strict" });
+    expect(providerOf(result, "t5", "plays").outcome).toBe("unknown");
+  });
+
+  it("strict: neither the value that failed, nor the schema's message, nor what a validator threw is kept anywhere in the result", async () => {
+    const quoting: Schema<string> = {
+      "~standard": {
+        version: 1,
+        vendor: "test",
+        validate: (v) => {
+          if (v === "TRK-0042") return { issues: [{ message: `not a code: ${String(v)}` }] };
+          if (v === "ISRC-0099") throw new Error(`cannot parse ${String(v)}`);
+          return { value: String(v) };
+        },
+      },
+    };
+    const g = hopgraph<Ctx, Meta, Conn>().entities({ isrc: entity({ key: z.string() }) });
+    const codes = fake<string>({ found: { ok: "fine", a: "TRK-0042", b: "ISRC-0099" } });
+    const result = await run(
+      g.graph(
+        g.route(
+          "isrc",
+          g.provider("codes", {
+            loader: g.loader({
+              ...free,
+              id: "codes",
+              keyedBy: "isrc",
+              connectors: { allOf: ["db"] },
+              load: codes.load,
+            }),
+            temporal: "current",
+            rows: "one",
+            project: (v) => [{ code: v }],
+            raw: { code: { ...m("Code"), schema: quoting } },
+          }),
+          g.itself("isrc"),
+        ),
+      ),
+      options({ refs: refs("isrc", "ok", "a", "b"), providers: ["codes"], validate: "strict" }),
+    );
+
+    expect(providerOf(result, "ok", "codes").outcome).toBe("found");
+    for (const bad of ["a", "b"]) expect(providerOf(result, bad, "codes").unknown).toEqual(failed);
+    expect(traceOf(result, "provider:codes", "codes").errors).toEqual([
+      { code: "HG_INVALID", keys: 2 },
+    ]);
+    for (const secret of ["TRK-0042", "ISRC-0099", "not a code", "cannot parse"])
+      expect(dump(result)).not.toContain(secret);
+  });
+
+  it("strict: the loader's answer is cached as it came; each run checks its projection again, and boundaries reads it as it came", async () => {
+    const { ask, chart } = buildChart(CHART);
+    const cache = new MemoryCache();
+    const first = await ask(["t1", "t4"], { validate: "strict", cache });
+    const second = await ask(["t1", "t4"], { validate: "strict", cache });
+    const lax = await ask(["t1", "t4"], { cache });
+
+    expect(chart.calls).toHaveLength(1);
+    for (const result of [first, second]) {
+      expect(providerOf(result, "t1", "plays").outcome).toBe("found");
+      expect(providerOf(result, "t4", "plays").unknown).toEqual(failed);
+    }
+    expect(providerOf(lax, "t4", "plays").outcome).toBe("found");
+    expect(rowsOf(providerOf(lax, "t4", "plays"))[0]?.fields.streams).toBe("LOTS-0042");
+  });
+
+  it("strict: a provider whose answer is not found is not checked: absent stays absent, a failed read stays what the source said", async () => {
+    const { ask } = buildChart(CHART, { unknown: { t9: { reason: "failed" } } });
+    // t4 fails its schema; t9 is unknown to its loader, t10 is not in it
+    const result = await ask(["t4", "t9", "t10"], { validate: "strict" });
+
+    const absent = providerOf(result, "t10", "plays");
+    expect(absent.outcome).toBe("absent");
+    expect(absent.rows).toEqual([]);
+    expect(providerOf(result, "t9", "plays").unknown).toEqual(failed);
+    // only t4 is counted as invalid; t9's failure is the load's own
+    const errors = traceOf(result, "provider:plays", "chart").errors;
+    expect(errors).toHaveLength(2);
+    expect(errors).toContainEqual({ code: "E_FAKE", keys: 1 });
+    expect(errors).toContainEqual({ code: "HG_INVALID", keys: 1 });
+  });
+
+  it("strict: a ref the hydration refused is not read, so not checked: absent stays absent, unmet stays unmet", async () => {
+    const g = hopgraph<Ctx, Meta, Conn>().entities({
+      song: entity({ key: z.string(), carries: { edition: z.string() } }),
+    });
+    const editions = fake<{ edition: string }>({
+      found: { t1: { edition: "web" }, t4: { edition: "web" } },
+      unknown: { t9: { reason: "failed" } },
+    });
+    const chart = fake<number>({ found: { t1: text("12"), t4: text("LOTS-0042") } });
+    g.hydrator(
+      "song",
+      g.loader({
+        ...free,
+        id: "editions",
+        keyedBy: "song",
+        connectors: { allOf: ["db"] },
+        load: editions.load,
+      }),
+      (v) => ({ edition: v.edition }),
+    );
+    const result = await run(
+      g.graph(
+        g.route(
+          "song",
+          g.provider("plays", {
+            loader: g.loader({
+              ...free,
+              id: "chart",
+              keyedBy: "song",
+              needs: ["edition"],
+              connectors: { allOf: ["db"] },
+              load: chart.load,
+            }),
+            temporal: "historical",
+            rows: "one",
+            project: (v) => [{ streams: v }],
+            raw: { streams: { ...m("Streams"), schema: z.coerce.number() } },
+          }),
+          g.itself("song"),
+        ),
+      ),
+      options({
+        refs: refs("song", "t1", "t4", "t8", "t9"),
+        providers: ["plays"],
+        validate: "strict",
+      }),
+    );
+
+    expect(chart.loaded()).toEqual(["t1", "t4"]);
+    expect(providerOf(result, "t1", "plays").outcome).toBe("found");
+    expect(providerOf(result, "t4", "plays").unknown).toEqual(failed);
+    expect(providerOf(result, "t8", "plays").outcome).toBe("absent");
+    expect(providerOf(result, "t9", "plays").unknown).toEqual([
+      { reason: "unmet", needs: ["edition"] },
+    ]);
+    expect(traceOf(result, "provider:plays", "chart").errors).toEqual([
+      { code: "HG_INVALID", keys: 1 },
+    ]);
   });
 });
