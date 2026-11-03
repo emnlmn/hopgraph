@@ -295,7 +295,8 @@ union of shapes or an index signature are refused by the compiler, since the run
 `raw` names and the result types them as the rows are typed. Give `project` a return type, with
 optional fields where rows differ; a row type may be an interface or a type alias. `g.catalog()`
 lists every field with its provider, entity, kind, inputs and `Meta`, for the application's field
-pickers, search and docs.
+pickers, search and docs. A field may also declare a `schema` of its value, beside its `meta`: a
+run that validates `"strict"` checks the values against it ([Validation](#validation)).
 
 ### Routes, and the graph test
 
@@ -674,7 +675,12 @@ schema parsed it, so a key a schema coerces is read with the type the graph decl
   attributes, and what a hydrator projects. A key whose projection fails is `unknown: failed`
   (`HG_INVALID` in the trace), and a fallback strategy runs on it.
 - `"strict"`: also every envelope a load returns. A key in two buckets is failed instead of
-  trusted, and keys not asked, contradicted or missing are reported in the trace.
+  trusted, and keys not asked, contradicted or missing are reported in the trace. And the values a
+  provider projects, against their fields' schemas: in each row a ref keeps under the rows cap,
+  each raw value as projected, then each derived value as computed from the parsed raw ones. A
+  field without a schema, or that the row does not hold or holds as `undefined`, is not checked. A
+  ref with a value that fails is `unknown: failed` for that provider, with no rows (`HG_INVALID`
+  in the provider's trace); the loader's answer is still cached as it came.
 - `"off"`: no schema runs.
 
 ## Tracing and metrics
@@ -718,7 +724,8 @@ the failure by its code (`ECONNRESET`) and class, never its message.
 - It does not search for paths at run time, and does not choose between routes by cost: a route
   is declared, because a cheaper path can change what a field means.
 - It has no query language and no transport: it is a library function over in-process values.
-- It does not run a field's schema on the values a provider projects.
+- It does not run a field's schema on the values a provider projects unless the run validates
+  `"strict"`.
 - It does not filter fields: a run returns every field of each requested provider.
 - It does not aggregate, join across providers, or compute a value from two providers: that is
   left to the consumer.

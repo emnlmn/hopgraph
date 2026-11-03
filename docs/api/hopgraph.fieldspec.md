@@ -73,7 +73,7 @@ the application's meaning of the field: required, opaque to the library
 
 </td><td>
 
-_(Optional)_ the value's schema; kept for the application, never run (DESIGN.md §11)
+_(Optional)_ the value's schema: a run that validates `strict` checks each value a row holds against it,  and reads it as the schema parsed it (DESIGN.md §5.6)
 
 
 </td></tr>

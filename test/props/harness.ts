@@ -29,6 +29,7 @@ import {
   type Schema,
   type Span,
   type Tracer,
+  type Validation,
 } from "hopgraph";
 // not part of the package: `run` with the rule it replaced, to compare the two (scheduling.test.ts)
 import { runWith } from "../../src/run/executor.ts";
@@ -284,7 +285,7 @@ function envelopeOf(
 export type Meta = { readonly label: string };
 type Ctx = Record<string, never>;
 
-/** Schemas give types and nothing else: the library never calls them. */
+/** Key and link schemas give types and nothing else here: they accept what they are given. */
 function schema<T>(): Schema<T> {
   return {
     "~standard": { version: 1, vendor: "props", validate: (value) => ({ value: value as T }) },
@@ -293,7 +294,16 @@ function schema<T>(): Schema<T> {
 
 const m = (label: string) => ({ meta: { label } });
 
-function graphOf(s: Scenario, stage: Stage): GraphDef<Meta> {
+/** How a run is asked, besides the request: what it validates, and the schemas the providers'
+ *  fields declare. A field's schema is `fields(provider id, field name)`: the raw `a` and `b`, and
+ *  `twice` of a derived provider. Left out, a run validates as `run` does by default and no field
+ *  declares a schema. */
+export interface Variant {
+  readonly validate?: Validation;
+  readonly fields?: (provider: string, field: string) => Schema<unknown> | undefined;
+}
+
+function graphOf(s: Scenario, stage: Stage, variant: Variant): GraphDef<Meta> {
   const g = hopgraph<Meta, string, Ctx>().entities(
     Object.fromEntries(
       s.entities.map((e) => [e.name, entity({ key: schema<string>(), personal: e.personal })]),
@@ -363,17 +373,22 @@ function graphOf(s: Scenario, stage: Stage): GraphDef<Meta> {
 
   const providers = new Map<string, ProviderDef<Meta>>(
     s.providers.map((p) => {
+      // a field's spec: its meaning, and its schema when the variant gives it one
+      const field = <T>(name: string) => {
+        const declares = variant.fields?.(p.id, name) as Schema<T> | undefined;
+        return declares ? { meta: { label: name }, schema: declares } : m(name);
+      };
       const spec = {
         loader: loader(p.loader),
         temporal: "current" as const,
         rows: p.rows,
         project: (value: Value): readonly Row[] => rowsOf(p, value),
-        raw: { a: m("a"), b: m("b") },
+        raw: { a: field<number>("a"), b: field<string | undefined>("b") },
       };
       const declared = p.derived
         ? g.provider(p.id, {
             ...spec,
-            derived: (d) => ({ twice: d(["a"], ({ a }) => a * 2, m("twice")) }),
+            derived: (d) => ({ twice: d(["a"], ({ a }) => a * 2, field<number>("twice")) }),
           })
         : g.provider(p.id, spec);
       return [p.id, declared];
@@ -525,6 +540,7 @@ export function player(
   timing: number,
   resilience?: Resilience,
   rule: Rule = "plan",
+  variant: Variant = {},
 ): Player {
   const stage: Stage = {
     log: [],
@@ -535,7 +551,7 @@ export function player(
     resilience,
     attempts: new Map(),
   };
-  const graph = graphOf(s, stage);
+  const graph = graphOf(s, stage, variant);
   const store = new Store();
   const played: Played[] = [];
   return {
@@ -571,6 +587,7 @@ export function player(
           clock: o.deadlineAfter === undefined ? () => NOW : () => NOW + calls(),
           ...(deadline === undefined ? {} : { deadline }),
           approved,
+          ...(variant.validate ? { validate: variant.validate } : {}),
           fatal: (e) => e instanceof Fatal,
           ...(resilience
             ? {
@@ -627,8 +644,9 @@ export async function playAll(
   timing = s.timing[0],
   resilience?: Resilience,
   rule: Rule = "plan",
+  variant: Variant = {},
 ): Promise<Player> {
-  const p = player(s, timing, resilience, rule);
+  const p = player(s, timing, resilience, rule, variant);
   for (const [i, w] of s.warmups.entries()) await p.play(`warm-up ${i + 1}`, w, { stale: w.stale });
   const first = await p.play("run", s.request);
   if (first.outcome.kind !== "result" || s.approvals.length === 0) return p;

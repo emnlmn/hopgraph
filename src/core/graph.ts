@@ -480,7 +480,8 @@ export interface Relation<F extends string, T extends string, Id extends string,
 export interface FieldSpec<T, Meta> {
   /** the application's meaning of the field: required, opaque to the library */
   readonly meta: Meta;
-  /** the value's schema; kept for the application, never run (DESIGN.md §11) */
+  /** the value's schema: a run that validates `strict` checks each value a row holds against it,
+   *  and reads it as the schema parsed it (DESIGN.md §5.6) */
   readonly schema?: Schema<T>;
 }
 
@@ -494,7 +495,8 @@ export interface DerivedField<R, T, Meta> {
   readonly compute: (row: R) => T;
   /** the application's meaning of the field */
   readonly meta: Meta;
-  /** the value's schema; never run */
+  /** the value's schema: a run that validates `strict` checks the computed value against it, and
+   *  reads it as the schema parsed it (DESIGN.md §5.6) */
   readonly schema: Schema<T> | undefined;
 }
 

@@ -12,6 +12,9 @@ Two questions, one file each, both run on the build as a consumer would, with No
 npm run bench                  # build, then measure every size (about a minute)
 npm run bench -- 1000 10000    # measure only the sizes given
 npm run bench:latency          # build, then time nine runs over sources of mixed paces
+
+# a million rows: Node's default heap runs out, and it takes about 8 minutes
+NODE_OPTIONS=--max-old-space-size=16384 npm run bench -- 1000000
 ```
 
 ## The graph
@@ -34,32 +37,34 @@ key is loaded; `warm` already holds every answer, so nothing is.
 ## Columns
 
 - **ms (median)**: the median time of one run: over 15 runs up to 1 000 rows, 5 at 10 000, and a
-  single run at 100 000, after a warm-up run that warms the JIT and fills the warm cache.
+  single run from 100 000 on, after a warm-up run that warms the JIT and fills the warm cache.
 - **µs per row**: the run's time over the number of base rows: the executor's overhead per row.
 - **heap held (MB)**: the heap the result holds once the run is over (`--expose-gc`, after a full
-  collection). Small values are within the collector's noise and can come out negative (−3.1 MB
-  at 1 000 rows, cold).
+  collection). Small values are within the collector's noise and can come out negative.
 - **waves, calls, keys loaded**: what the run read. Waves is the latest wave a job started in;
   calls are the loaders' calls: one per batch of missing keys per loader per wave.
 
 ## Baseline
 
-Apple M1 Max, Node 24.22.1, recorded on 2026-11-02 with the scheduler of DESIGN.md §5.2. The commit
-before it (the barrier), measured back to back on the same machine, took the same time within 3%
-at every size, with the same calls and keys; it reached 3 waves where this reaches 4.
+Apple M1 Max, Node 24.22.1, recorded on 2026-11-03 at 0.2.1. On 2026-11-02 the scheduler of
+DESIGN.md §5.2 and the commit before it (the barrier), measured back to back on the same machine,
+took the same time within 3% at every size, with the same calls and keys; the barrier reached 3
+waves where the scheduler reaches 4.
 
 | cache | base rows | ms (median) | µs per row | heap held (MB) | waves | calls | keys loaded |
 | ----- | --------: | ----------: | ---------: | -------------: | ----: | ----: | ----------: |
-| cold  |        10 |         1.0 |       98.3 |            0.1 |     4 |     4 |          19 |
-| warm  |        10 |         0.8 |       79.2 |            0.0 |     4 |     0 |           0 |
-| cold  |       100 |         5.4 |       54.1 |           -0.0 |     4 |     4 |         175 |
-| warm  |       100 |         5.7 |       57.2 |            0.2 |     4 |     0 |           0 |
-| cold  |     1,000 |        44.8 |       44.8 |           -3.1 |     4 |     5 |       1,750 |
-| warm  |     1,000 |        44.2 |       44.2 |            2.0 |     4 |     0 |           0 |
-| cold  |    10,000 |       496.7 |       49.7 |           21.2 |     4 |    35 |      17,500 |
-| warm  |    10,000 |       484.2 |       48.4 |           21.1 |     4 |     0 |           0 |
-| cold  |   100,000 |      6487.0 |       64.9 |          213.5 |     4 |   350 |     175,000 |
-| warm  |   100,000 |      6478.5 |       64.8 |          211.6 |     4 |     0 |           0 |
+| cold  |        10 |         1.3 |      129.7 |            0.0 |     4 |     4 |          19 |
+| warm  |        10 |         1.1 |      110.1 |            0.0 |     4 |     0 |           0 |
+| cold  |       100 |         6.0 |       60.2 |            0.0 |     4 |     4 |         175 |
+| warm  |       100 |         5.8 |       57.9 |            0.2 |     4 |     0 |           0 |
+| cold  |     1,000 |        46.3 |       46.3 |            1.9 |     4 |     5 |       1,750 |
+| warm  |     1,000 |        44.3 |       44.3 |            2.0 |     4 |     0 |           0 |
+| cold  |    10,000 |       467.6 |       46.8 |           21.3 |     4 |    35 |      17,500 |
+| warm  |    10,000 |       486.3 |       48.6 |           21.1 |     4 |     0 |           0 |
+| cold  |   100,000 |      5581.9 |       55.8 |          213.3 |     4 |   350 |     175,000 |
+| warm  |   100,000 |      5647.1 |       56.5 |          211.4 |     4 |     0 |           0 |
+| cold  | 1,000,000 |     72577.9 |       72.6 |         2126.2 |     4 |  3500 |   1,750,000 |
+| warm  | 1,000,000 |     69268.3 |       69.3 |         2107.0 |     4 |     0 |           0 |
 
 What it says:
 - The jobs are what the design promises: one call per 500 missing keys per loader per wave (35
@@ -67,11 +72,17 @@ What it says:
 - Four waves: the fallback of `artist › venue:home` reads the artists the profile already
   read, and that read takes its wave though it loads nothing, so that the waves after it do not
   depend on which call ended first. It makes no job.
-- The time per row stays between 44 and 50 µs from 1 000 to 10 000 rows, and grows by almost half
-  at 100 000. A CPU profile at 20 000 rows puts a third of the time in `stableJson` (the
-  text that deduplicates row steps and chains and names refs and cache entries) and 5% in `byEntity`
-  (`executor.ts`), which groups the base refs with `Array.includes` and is quadratic in the number
-  of distinct base rows: the growth at 100 000.
+- The time per row stays between 44 and 49 µs from 1 000 to 10 000 rows, and grows by a fifth at
+  100 000, where the collector works through a heap ten times larger. A CPU profile at 100 000
+  rows puts a quarter of the time in `stableJson` (the text that deduplicates row steps and chains
+  and names refs and cache entries), an eighth in the collector and a seventh in `sha256` (the
+  ids). No step grows faster than the rows: the base refs, once grouped with `Array.includes`
+  (quadratic, the growth to 65 µs per row at 100 000 on 2026-11-02), are now grouped by a `Map`.
+- A million rows do not fit Node's default heap (4.2 GB here): the first run runs out of memory.
+  With a 16 GB heap the result holds 2.1 GB and the process peaks at 12 GB resident. The time per
+  row grows by about 30% over 100 000; the collector's pauses go from 10% of the time to 16%,
+  about 6 µs per row of the 16 it grows. The rest is not yet attributed: no profile at this size.
+  One run per cache, so the figure gives the scale, not a baseline.
 - A cold run costs no more than a warm one: with instant loaders, reading through the cache and
   loading cost the executor the same.
 - The result holds about 2 KB per base row for three providers.

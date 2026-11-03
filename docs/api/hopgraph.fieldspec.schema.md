@@ -4,7 +4,7 @@
 
 ## FieldSpec.schema property
 
-the value's schema; kept for the application, never run (DESIGN.md §11)
+the value's schema: a run that validates `strict` checks each value a row holds against it,  and reads it as the schema parsed it (DESIGN.md §5.6)
 
 **Signature:**
 

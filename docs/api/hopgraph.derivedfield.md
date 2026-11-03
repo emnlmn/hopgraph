@@ -136,7 +136,7 @@ the application's meaning of the field
 
 </td><td>
 
-the value's schema; never run
+the value's schema: a run that validates `strict` checks the computed value against it, and  reads it as the schema parsed it (DESIGN.md §5.6)
 
 
 </td></tr>
