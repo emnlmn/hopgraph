@@ -5,6 +5,8 @@ code after. Changes that need no edit are in [CHANGELOG.md](CHANGELOG.md) only.
 
 ## Unreleased
 
+## [0.3.0] - 2026-11-03
+
 ### Move `Ctx` to the last type argument of `hopgraph()`
 
 Only for a graph written with type arguments: `Meta` and the connectors come first, and `Ctx`

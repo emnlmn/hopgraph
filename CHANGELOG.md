@@ -7,6 +7,8 @@ the guide, says which changes each kind of release may bring.
 
 ## Unreleased
 
+## [0.3.0] - 2026-11-03
+
 ### Added
 
 - An agent skill in the package, `skills/hopgraph/` ([Agent Skills](https://agentskills.io)
