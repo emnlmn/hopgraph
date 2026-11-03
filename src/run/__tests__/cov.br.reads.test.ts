@@ -54,7 +54,7 @@ function setup(
   tracer: Tracer = { startSpan: () => quiet },
 ) {
   const calls: Record<string, string[][]> = { a: [], b: [], c: [], r: [] };
-  const g = hopgraph<object, unknown>().entities({
+  const g = hopgraph<unknown, string, object>().entities({
     master: entity({
       key: z.string(),
       carries: { window: z.string(), region: z.string() },

@@ -29,7 +29,7 @@ const text: Schema<string> = {
 
 /** A disc by its number, given as text: `"07"` is disc 7, whose id is `"7"`. */
 function graph(id: (n: number) => string = (n) => n.toFixed(0)) {
-  const g = hopgraph<undefined, { readonly label: string }>().entities({
+  const g = hopgraph<{ readonly label: string }>().entities({
     disc: entity({ key: z.string().transform((s) => Number(s)), id }),
     tag: entity({ key: text }),
   });

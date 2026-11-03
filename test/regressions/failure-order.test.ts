@@ -29,7 +29,7 @@ class Quota extends Error {
  *  `firstFails`), and its artist's profile, read in wave 2 by `quota`, on another branch. */
 function build() {
   const t = { firstMs: 1, quotaMs: 1, firstFails: false, quotaFails: false };
-  const g = hopgraph<Record<string, never>, { readonly label: string }>().entities({
+  const g = hopgraph<{ readonly label: string }, string, Record<string, never>>().entities({
     track: entity({ key: text }),
     artist: entity({ key: text }),
   });

@@ -20,7 +20,7 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 /** Two metered sources priced at 100 bytes, each needing approval; `slow` names the one whose dry
  *  run takes longer. */
 function graph(slow: { name: string }) {
-  const g = hopgraph<Record<string, never>, { readonly label: string }>().entities({
+  const g = hopgraph<{ readonly label: string }, string, Record<string, never>>().entities({
     track: entity({ key: text }),
   });
   const metered = (id: string) =>

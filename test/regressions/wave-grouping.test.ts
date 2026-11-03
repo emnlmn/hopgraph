@@ -44,7 +44,7 @@ async function play(first: "links" | "legacy") {
       new Promise<Envelope<string, V>>((resolve) => {
         waiting.set(name, () => resolve(answer()));
       });
-  const g = hopgraph<Record<string, never>, { readonly label: string }>().entities({
+  const g = hopgraph<{ readonly label: string }, string, Record<string, never>>().entities({
     track: entity({ key: text }),
     artist: entity({ key: text }),
   });

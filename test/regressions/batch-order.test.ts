@@ -32,7 +32,7 @@ class Broken extends Error {
 }
 
 function graph(slow: { name: string }) {
-  const g = hopgraph<Record<string, never>, { readonly label: string }>().entities({
+  const g = hopgraph<{ readonly label: string }, string, Record<string, never>>().entities({
     track: entity({ key: text }),
     artist: entity({ key: text }),
   });

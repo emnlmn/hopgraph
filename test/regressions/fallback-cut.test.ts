@@ -18,7 +18,7 @@ const TEN_DAYS = { kind: "days", days: 10 } as const;
 
 /** t1's profile, `archive` leading to `archiveFinds`: a1 has a profile, a2 none. */
 function ask(archiveFinds: "a1" | "a2") {
-  const g = hopgraph<undefined, { readonly label: string }>().entities({
+  const g = hopgraph<{ readonly label: string }>().entities({
     track: entity({ key: text }),
     artist: entity({ key: text }),
   });

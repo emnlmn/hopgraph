@@ -215,7 +215,7 @@ a listening channel once a rule reads it. That rule and that explanation belong 
 not to every page that shows it.
 
 ```ts
-const g = hopgraph<Ctx, Meta>().entities({ track, artist }); // Meta: the application's type
+const g = hopgraph<Meta, string, Ctx>().entities({ track, artist }); // Meta: the application's type
 
 g.provider("trackStreams", {
   loader: trackHeader,
@@ -258,14 +258,16 @@ export const graph = g.graph(
       g.path(typedEmail), // track › email:typed
     ),
   ),
-  g.route("track", trackStreams, g.itself("track")), // the provider is keyed by the base entity
+  g.route("track", trackStreams), // the provider is keyed by the base entity: no path to give
 );
 ```
 
 The compiler refuses a path that does not chain, a path that does not start at the base, a union
 of paths with different ends, and `itself(base)` for a provider keyed by another entity (§7).
 `itself` is the path of no relation: the one spelling for a provider keyed by the base, alone or
-in a union (`g.union(g.itself("artist"), g.path(referred))`).
+in a union (`g.union(g.itself("artist"), g.path(referred))`). A route given no path is
+`itself(base)`, and only for a provider keyed by the base: for another it is refused, never
+searched for.
 
 A route is a value: `g.route()` checks it and declares nothing, and `g.graph(...routes)` takes the
 graph's routes, all of them, refusing one given twice (`HG_DUPLICATE`) or made on another graph
@@ -381,7 +383,9 @@ operator drops a loader's entries by prefix; the key id is hashed, so a personal
 store's key space in clear. **Retention** is per key, from `keep`, which sees the outcome and the
 first cut, never the value: a key absent today may be found tonight, so it is kept briefly. A
 loader that declares no `keep` keeps a whole found answer for a `day` and an absent or a cut one
-`brief`ly. The application maps each retention to a duration in its `CachePort`.
+`brief`ly. The application maps each retention to a duration in its `CachePort`; `memoryCache()`,
+a port in the process's memory for tests and single-process apps, maps them to a day, an hour and a
+minute unless told.
 
 ### 5.3 Gates, limits, deadline and cancellation
 
@@ -814,7 +818,7 @@ results are data for the application to render through its own masking; the libr
 The compiler enforces, at the call site and with error messages written for people:
 
 ```ts
-const g = hopgraph<Ctx, Meta, Conn>().entities({ track, artist, email }); // type arguments first
+const g = hopgraph<Meta, Conn, Ctx>().entities({ track, artist, email }); // type arguments first
 
 export const contact = g.relation("track", "email", "contact", {
   cardinality: "N:1",
@@ -837,10 +841,11 @@ export const contact = g.relation("track", "email", "contact", {
 6. A projection returns links with the target's key type and, when the relation declares link
    attributes, those attributes.
 7. A route's path chains, starts at the route's base and ends at the provider's entity; a union's
-   paths share both ends; `itself(base)` only when the provider is keyed by the base. A route has
-   one base and one provider: with a union of either, the checks would hold for one member while
-   the graph's type claimed every pair. `g.route` and `g.graph` check the chain again at run time,
-   for a route from a cast or plain JavaScript (`HG_PATH`, `HG_UNKNOWN_RELATION`).
+   paths share both ends; `itself(base)`, or no path at all, only when the provider is keyed by the
+   base. A route has one base and one provider: with a union of either, the checks would hold for
+   one member while the graph's type claimed every pair. `g.route` and `g.graph` check the chain
+   again at run time, for a route from a cast or plain JavaScript (`HG_PATH`,
+   `HG_UNKNOWN_RELATION`).
 8. Every projected value is a raw field, and every field carries a `Meta`. A derived field reads
    raw fields of its own provider, cannot take a raw field's name, and its function receives
    exactly its inputs, typed. A provider's rows have one shape with named fields, since the run

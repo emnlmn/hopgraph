@@ -28,7 +28,7 @@ it("two dry runs of one wave that fail the run: the run rejects with the smaller
     [20, 1],
     [1, 20],
   ]) {
-    const g = hopgraph<Record<string, never>, { readonly label: string }>().entities({
+    const g = hopgraph<{ readonly label: string }, string, Record<string, never>>().entities({
       track: entity({ key: text }),
     });
     const metered = (id: string, ms: number) =>

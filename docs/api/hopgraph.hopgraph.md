@@ -4,12 +4,12 @@
 
 ## hopgraph() function
 
-Starts a graph. Type arguments first (no partial inference in TypeScript): `Ctx` is what a run carries (`undefined` for a graph whose runs carry nothing: a run may then leave `ctx` out), `Meta` what every field must say about itself, `Conn` the connector names.
+Starts a graph. Type arguments first (no partial inference in TypeScript): `Meta` is what every field must say about itself, `Conn` the connector names, `Ctx` what a run carries (`undefined` by default, for a graph whose runs carry nothing: a run may then leave `ctx` out).
 
 **Signature:**
 
 ```typescript
-export declare function hopgraph<Ctx, Meta, Conn extends string = string>(): {
+export declare function hopgraph<Meta, Conn extends string = string, Ctx = undefined>(): {
     entities<const E extends Entities>(entities: E): GraphBuilder<E, Ctx, Meta, Conn>;
 };
 ```

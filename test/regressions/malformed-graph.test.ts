@@ -24,7 +24,7 @@ afterEach(() => {
 
 it("a step fed by two others leaves no unhandled rejection when its loader cannot be offered to", async () => {
   process.on("unhandledRejection", listen);
-  const g = hopgraph<Record<string, never>, { readonly label: string }>().entities({
+  const g = hopgraph<{ readonly label: string }, string, Record<string, never>>().entities({
     track: entity({ key: text }),
     artist: entity({ key: text }),
   });

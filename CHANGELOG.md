@@ -7,6 +7,20 @@ the guide, says which changes each kind of release may bring.
 
 ## Unreleased
 
+### Added
+
+- Route a provider keyed by the base without a path: `g.route("track", summary)` is
+  `g.route("track", summary, g.itself("track"))`. A provider of another entity still needs a path,
+  and the compiler refuses a route that leaves it out.
+- Cache in memory with `memoryCache({ max, ttl, clock })`, a `CachePort` for tests, prototypes and
+  single-process apps.
+
+### Changed
+
+- Type a graph as `hopgraph<Meta, Conn, Ctx>()`: `Ctx` comes last and defaults to `undefined`, so a
+  graph whose runs carry no ctx writes `hopgraph<Meta, "db">()`. The before and after are in
+  [MIGRATION.md](MIGRATION.md).
+
 ## [0.2.1] - 2026-11-02
 
 ### Fixed

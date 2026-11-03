@@ -85,9 +85,9 @@ describe("the builder's refusals", () => {
   };
 
   it("throws a DefinitionError whose code names the problem", () => {
-    const g = hopgraph<object, unknown>().entities({ track });
+    const g = hopgraph<unknown, string, object>().entities({ track });
     const tracks = g.loader({ ...base, id: "tracks" });
-    const other = hopgraph<object, unknown>()
+    const other = hopgraph<unknown, string, object>()
       .entities({ track })
       .loader({ ...base, id: "x" });
 

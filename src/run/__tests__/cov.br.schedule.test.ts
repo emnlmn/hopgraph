@@ -31,7 +31,7 @@ it("a fatal error fails the run without waiting for a lane of its own wave still
   const plain: Schema<string> = {
     "~standard": { version: 1, vendor: "test", validate: (v) => ({ value: String(v) }) },
   };
-  const g = hopgraph<Ctx, Meta, Conn>().entities({
+  const g = hopgraph<Meta, Conn, Ctx>().entities({
     item: entity({ key: plain }),
     slow: entity({ key: slowKey }),
   });

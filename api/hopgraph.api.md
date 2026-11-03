@@ -402,8 +402,9 @@ export interface GraphBuilder<E extends Entities, Ctx, Meta, Conn extends string
             readonly links?: number;
         };
     }): Relation<F, T, `${F} › ${T}:${Name}`, L>;
-    // Warning: (ae-forgotten-export) The symbol "IsUnion" needs to be exported by the entry point index.d.ts
-    route<B extends keyof E & string, P extends ProviderBase>(base: B, provider: P, how: IsUnion<B> extends true ? "a route starts at one entity: give one route per base" : IsUnion<P> extends true ? "a route reaches one provider: give one route per provider" : RouteHow<NoInfer<B>, P["entity"]>): Route<B, P>;
+    // Warning: (ae-forgotten-export) The symbol "OneRoute" needs to be exported by the entry point index.d.ts
+    route<B extends keyof E & string, P extends ProviderBase>(base: B, provider: P & OneRoute<B, P, P["entity"] extends B ? unknown : `provider "${P["id"]}" is keyed by "${P["entity"]}": give a path from "${B}" to it`>): Route<B, P>;
+    route<B extends keyof E & string, P extends ProviderBase>(base: B, provider: P, how: OneRoute<B, P, RouteHow<NoInfer<B>, P["entity"]>>): Route<B, P>;
     union<const Ps extends readonly [Path<string, string>, ...Path<string, string>[]]>(...paths: Ps): Combined<Ps[number]["from"], Ps[number]["to"]>;
 }
 
@@ -435,7 +436,7 @@ export interface Health {
 }
 
 // @public
-export function hopgraph<Ctx, Meta, Conn extends string = string>(): {
+export function hopgraph<Meta, Conn extends string = string, Ctx = undefined>(): {
     entities<const E extends Entities>(entities: E): GraphBuilder<E, Ctx, Meta, Conn>;
 };
 
@@ -599,6 +600,16 @@ export type LoadReason = {
 };
 
 // @public
+export function memoryCache(options?: MemoryCacheOptions): CachePort;
+
+// @public
+export interface MemoryCacheOptions {
+    readonly clock?: () => number;
+    readonly max?: number;
+    readonly ttl?: Partial<Record<"day" | "hour" | "brief", number>>;
+}
+
+// @public
 export interface Metered {
     readonly metered: {
         readonly auto: number;
@@ -682,6 +693,8 @@ export interface ProviderRow<F = Attrs> {
     readonly ref: string;
 }
 
+// Warning: (ae-forgotten-export) The symbol "IsUnion" needs to be exported by the entry point index.d.ts
+//
 // @public
 export type RawFields<R, Meta> = unknown extends R ? "a provider's rows need a type: what project returns is any, annotate it" : IsUnion<R> extends true ? "a provider's rows have one shape: declare one row type with optional fields, not a union" : {
     readonly [P in keyof NoInfer<R>]-?: FieldSpec<NoInfer<R>[P], Meta>;

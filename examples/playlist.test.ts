@@ -8,7 +8,7 @@ describe("examples/playlist", () => {
   it("answers every track with an outcome per provider", async () => {
     calls.length = 0;
     const result = await example();
-    const outcome = (row: string, provider: string) =>
+    const outcome = (row: string, provider: "trackSummary" | "artistProfile" | "labelName") =>
       result.rows.get(row)?.providers[provider]?.outcome;
 
     expect(result.status).toBe("complete");

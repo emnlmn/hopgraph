@@ -1,5 +1,6 @@
 // Hopgraph run: the executor over a declared graph (DESIGN.md §5, §6). Imports core only.
 
+export { type MemoryCacheOptions, memoryCache } from "./cache.ts";
 export { run } from "./executor.ts";
 export { createInflight, type Inflight } from "./flights.ts";
 export {

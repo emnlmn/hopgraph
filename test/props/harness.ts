@@ -294,7 +294,7 @@ function schema<T>(): Schema<T> {
 const m = (label: string) => ({ meta: { label } });
 
 function graphOf(s: Scenario, stage: Stage): GraphDef<Meta> {
-  const g = hopgraph<Ctx, Meta>().entities(
+  const g = hopgraph<Meta, string, Ctx>().entities(
     Object.fromEntries(
       s.entities.map((e) => [e.name, entity({ key: schema<string>(), personal: e.personal })]),
     ),

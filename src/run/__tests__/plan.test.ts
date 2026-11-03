@@ -22,7 +22,7 @@ function graph() {
   const track = entity({ key: z.string() });
   const master = entity({ key: z.string() });
   const studio = entity({ key: z.string() });
-  const g = hopgraph<object, Meta>().entities({ track, master, studio });
+  const g = hopgraph<Meta, string, object>().entities({ track, master, studio });
   const recordings = g.loader({ ...free, id: "recordings", keyedBy: "track" });
   const mastering = g.loader({ ...free, id: "mastering", keyedBy: "master" });
   const archive = g.loader({ ...free, id: "archive", keyedBy: "master" });

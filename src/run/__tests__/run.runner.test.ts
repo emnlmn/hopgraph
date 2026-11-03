@@ -76,7 +76,7 @@ function build() {
       found: { "ada@example.com": { domain: "example.com" } },
     }),
   };
-  const g = hopgraph<Ctx, Meta, Conn>().entities({
+  const g = hopgraph<Meta, Conn, Ctx>().entities({
     track,
     artist,
     shelf: entity({
@@ -363,7 +363,7 @@ describe("createRunner: run", () => {
     const unread = runner.read("track", "t1", ["onDb"]);
     await Promise.allSettled([missing, unread]);
 
-    const bare = hopgraph<undefined, Meta>().entities({ track });
+    const bare = hopgraph<Meta>().entities({ track });
     const loader = bare.loader({
       id: "totals",
       keyedBy: "track",
@@ -647,7 +647,7 @@ describe("createRunner: given no cache", () => {
    *  runs without approval, three wait for one. Each load takes 20 ms; `started()` resolves when
    *  the next one starts. */
   function metered() {
-    const g = hopgraph<Ctx, Meta, Conn>().entities({ track });
+    const g = hopgraph<Meta, Conn, Ctx>().entities({ track });
     const loads: string[][] = [];
     let onLoad: (() => void) | undefined;
     const totals = g.loader({

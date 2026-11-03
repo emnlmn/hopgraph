@@ -184,7 +184,18 @@ A key's value was read: its cuts, when the read stopped short of the whole answe
 
 </td><td>
 
-Starts a graph. Type arguments first (no partial inference in TypeScript): `Ctx` is what a run carries (`undefined` for a graph whose runs carry nothing: a run may then leave `ctx` out), `Meta` what every field must say about itself, `Conn` the connector names.
+Starts a graph. Type arguments first (no partial inference in TypeScript): `Meta` is what every field must say about itself, `Conn` the connector names, `Ctx` what a run carries (`undefined` by default, for a graph whose runs carry nothing: a run may then leave `ctx` out).
+
+
+</td></tr>
+<tr><td>
+
+[memoryCache(options)](./hopgraph.memorycache.md)
+
+
+</td><td>
+
+Cache answers in memory, for tests, prototypes and single-process apps. An app with several processes supplies its own port (Redis, a framework cache), so that they share what they read. Each retention keeps an answer for its `ttl`<!-- -->, and a read that meets an expired one drops it. Past `max` entries the oldest written is dropped first, and a key written again is the newest. A read costs its keys and a write the entries it writes and drops: neither walks the whole cache.
 
 
 </td></tr>
@@ -419,7 +430,7 @@ The declared graph as `g.graph(...routes)` returns it: what the executor and the
 
 </td><td>
 
-What `hopgraph<Ctx, Meta, Conn>().entities({...})` returns: one statement per loader, hydrator, relation, provider and route, each checked by the compiler at its call site (DESIGN.md §7) and refused at declaration time when it contradicts itself.
+What `hopgraph<Meta, Conn, Ctx>().entities({...})` returns: one statement per loader, hydrator, relation, provider and route, each checked by the compiler at its call site (DESIGN.md §7) and refused at declaration time when it contradicts itself.
 
 
 </td></tr>
@@ -563,6 +574,17 @@ A loader as the graph keeps it, its types erased.
 </td><td>
 
 A failure of a load, for the trace: a class or a code, never a driver's message (it may  contain the values it read). A load reports its failed statements with a code of its own; for  a load or a dry run that threw, the executor keeps the error's own `code` (`ECONNRESET`<!-- -->) with  its class beside it, or its class alone when it has no code. Codes the executor itself reports  start with `HG_`<!-- -->.
+
+
+</td></tr>
+<tr><td>
+
+[MemoryCacheOptions](./hopgraph.memorycacheoptions.md)
+
+
+</td><td>
+
+What `memoryCache` takes.
 
 
 </td></tr>
@@ -1272,7 +1294,7 @@ How a route from base `B` reaches a provider keyed by `PE`<!-- -->: a path or a 
 
 </td><td>
 
-What holds for one call: the base rows, the providers, the run's values, who reads, how long the caller waits, and the approvals. `ctx` may be left out when the graph's `Ctx` admits `undefined` (a graph built with `hopgraph<undefined, …>()`<!-- -->); otherwise it is required and checked against the graph's `Ctx`<!-- -->. `Rs` is the type of the base rows: when their entities are literals, `run` checks every provider against the graph's routes from each of them. README, "The runner", says why each option is here and not in `RunEnv`<!-- -->.
+What holds for one call: the base rows, the providers, the run's values, who reads, how long the caller waits, and the approvals. `ctx` may be left out when the graph's `Ctx` admits `undefined` (a graph built with `hopgraph<Meta>()`<!-- -->); otherwise it is required and checked against the graph's `Ctx`<!-- -->. `Rs` is the type of the base rows: when their entities are literals, `run` checks every provider against the graph's routes from each of them. README, "The runner", says why each option is here and not in `RunEnv`<!-- -->.
 
 
 </td></tr>

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { entity, hopgraph } from "../../core/index.ts";
 import { distinctRefs, identity, RefStore, showKeys } from "../refs.ts";
 
-const entities = hopgraph<object, unknown>()
+const entities = hopgraph<unknown, string, object>()
   .entities({
     track: entity({
       key: z.string(),

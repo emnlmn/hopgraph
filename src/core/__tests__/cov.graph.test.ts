@@ -18,7 +18,7 @@ const track = entity({ key: z.string() });
 const venue = entity({ key: z.string() });
 
 function build() {
-  const g = hopgraph<Ctx, Meta, "db">().entities({ artist, track, venue });
+  const g = hopgraph<Meta, "db", Ctx>().entities({ artist, track, venue });
   const loaderOf = <K extends "artist" | "track" | "venue">(id: string, keyedBy: K) =>
     g.loader({
       id,

@@ -197,7 +197,7 @@ describe("run: a run given only its rows, its providers and its ctx", () => {
 
 describe("run: ctx", () => {
   it("may be left out when the graph's Ctx admits undefined: a graph whose runs carry nothing", async () => {
-    const g = hopgraph<undefined, Meta>().entities({ artist: entity({ key: z.string() }) });
+    const g = hopgraph<Meta>().entities({ artist: entity({ key: z.string() }) });
     const f = fake<{ readonly name: string }>({ found: { c1: { name: "Mira Volk" } } });
     const loader = g.loader({
       id: "names",
@@ -229,7 +229,7 @@ describe("run: ctx", () => {
   });
 
   it("is the graph's own: a graph whose loads read { a, b } is not a graph of { a }", () => {
-    const g = hopgraph<{ readonly a: string; readonly b: string }, Meta>().entities({
+    const g = hopgraph<Meta, string, { readonly a: string; readonly b: string }>().entities({
       artist: entity({ key: z.string() }),
     });
     // routes alike (none), so that only the ctx differs

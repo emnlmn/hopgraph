@@ -24,13 +24,12 @@ import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import {
   absent,
-  type CachedAnswer,
-  type CachePort,
   createRunner,
   entity,
   envelope,
   found,
   hopgraph,
+  memoryCache,
   type RunResult,
   type Schema,
   unknown,
@@ -120,7 +119,7 @@ const text: Schema<string> = {
 
 const CAP = 3;
 
-const g = hopgraph<undefined, { readonly label: string }, "primary" | "replica">().entities({
+const g = hopgraph<{ readonly label: string }, "primary" | "replica">().entities({
   pitch: entity({ key: text }),
   // `pitchedAt` only comes with the link from a pitch: no hydrator gives it
   artist: entity({ key: text, carries: { pitchedAt: text }, context: ["pitchedAt"] }),
@@ -206,22 +205,11 @@ export const graph = g.graph(g.route("pitch", tracksBefore, g.path(about)));
 
 // ---------------------------------------------------------------- a run
 
-/** The smallest cache port: a map. */
-class MemoryCache implements CachePort {
-  private readonly store = new Map<string, CachedAnswer>();
-  async getMany(keys: readonly string[]) {
-    return new Map(keys.flatMap((k) => (this.store.has(k) ? [[k, this.store.get(k)!]] : [])));
-  }
-  async setMany(entries: Parameters<CachePort["setMany"]>[0]) {
-    for (const e of entries) this.store.set(e.key, e.answer);
-  }
-}
-
 /** Every pitch, read by its key. A process makes its runner once, at startup; this one makes it
  *  here so that each test starts from an empty cache. */
 export function example(): Promise<RunResult<readonly [typeof tracksBefore]>> {
   const runner = createRunner(graph, {
-    cache: new MemoryCache(),
+    cache: memoryCache(),
     // this deployment reads the replica only
     readable: (connector) => (connector === "replica" ? true : "not_configured"),
     limits: { replica: 4 },

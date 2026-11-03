@@ -235,7 +235,7 @@ describe("run: a projected row missing a raw field", () => {
 });
 
 describe("RefStore defaults", () => {
-  const entities = hopgraph<object, unknown>()
+  const entities = hopgraph<unknown, string, object>()
     .entities({ track: entity({ key: z.string(), carries: { releasedAt: z.string() } }) })
     .graph().entities;
 

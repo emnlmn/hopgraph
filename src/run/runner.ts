@@ -17,17 +17,15 @@ import {
   type GraphDef,
   type Unread,
 } from "../core/index.ts";
+import { gateScopes } from "./cache.ts";
 import { runCaps, tighter } from "./caps.ts";
 import { type RowNaming, run, runWith } from "./executor.ts";
 import { flightsOf } from "./flights.ts";
 import { healthOf } from "./health.ts";
-import { isScopeKey } from "./ids.ts";
 import { runLimits } from "./limits.ts";
 import { plan } from "./plan.ts";
 import type {
   BaseRef,
-  CachedAnswer,
-  CachePort,
   Caps,
   ProviderRef,
   ReadCall,
@@ -109,46 +107,6 @@ function byKeyId(): RowNaming {
     return ref.keyId;
   };
 }
-
-/**
- * The cache of a runner given none: the scopes of the gates its runs stop at, for the hour each is
- * written for, and nothing else, so every call still reads its sources. Without them an approval
- * would cover its own gate id only, and a resume whose keys came in parts (another call loading
- * some of them) would stop at a gate of its own. It holds `most` scopes at a time, the oldest
- * dropped first (an approval of a dropped one covers its own gate id only), and lets an expired one
- * go whenever it meets it.
- */
-export function gateScopes(clock: () => number, most = 10_000): CachePort {
-  const kept = new Map<string, { readonly answer: CachedAnswer; readonly until: number }>();
-  return {
-    getMany: async (keys) => {
-      const now = clock();
-      const hits = new Map<string, CachedAnswer>();
-      for (const key of keys) {
-        const entry = kept.get(key);
-        if (entry && entry.until > now) hits.set(key, entry.answer);
-        else if (entry) kept.delete(key);
-      }
-      return hits;
-    },
-    setMany: async (entries) => {
-      const now = clock();
-      for (const [key, entry] of kept) if (entry.until <= now) kept.delete(key);
-      for (const { key, answer, retention } of entries) {
-        if (!isScopeKey(key) || retention !== "hour") continue;
-        // written again, it is the newest
-        kept.delete(key);
-        kept.set(key, { answer, until: now + HOUR });
-      }
-      for (const key of kept.keys()) {
-        if (kept.size <= most) break;
-        kept.delete(key);
-      }
-    },
-  };
-}
-
-const HOUR = 3_600_000;
 
 /** One call's options: the call's own, the env's, and the two a call narrows. Each is named on the
  *  side it belongs to, and `satisfies` makes a new option be placed here. */

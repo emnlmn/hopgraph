@@ -114,7 +114,7 @@ type MasterRef = Ref<string, { window: string }>;
 /** A master loader that needs a window (a context attribute), answering `master@window`. */
 function setup(behave: { load?: () => void; price?: () => number } = {}) {
   const calls: { key: string; window: string }[][] = [];
-  const g = hopgraph<object, unknown>().entities({
+  const g = hopgraph<unknown, string, object>().entities({
     master: entity({ key: z.string(), carries: { window: z.string() }, context: ["window"] }),
   });
   const common = {

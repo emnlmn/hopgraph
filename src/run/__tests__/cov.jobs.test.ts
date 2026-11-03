@@ -192,7 +192,7 @@ describe("run: a failure while other work is still checking links", () => {
     const plain: Schema<string> = {
       "~standard": { version: 1, vendor: "test", validate: (v) => ({ value: String(v) }) },
     };
-    const g = hopgraph<Ctx, Meta, Conn>().entities({
+    const g = hopgraph<Meta, Conn, Ctx>().entities({
       item: entity({ key: plain }),
       slow: entity({ key: slowKey }),
       other: entity({ key: plain }),
@@ -289,7 +289,7 @@ describe("run: the barrier rule", () => {
     const plain: Schema<string> = {
       "~standard": { version: 1, vendor: "test", validate: (v) => ({ value: String(v) }) },
     };
-    const g = hopgraph<Ctx, Meta, Conn>().entities({
+    const g = hopgraph<Meta, Conn, Ctx>().entities({
       item: entity({ key: plain }),
       other: entity({ key: plain }),
     });

@@ -553,6 +553,14 @@ type UnnamedKeys<R> = {
 /** Whether `T` is a union of several types. */
 type IsUnion<T, U = T> = T extends unknown ? ([U] extends [T] ? false : true) : never;
 
+/** `Ok`, unless the route has several bases or several providers: then the message that says so. */
+type OneRoute<B extends string, P extends ProviderBase, Ok> =
+  IsUnion<B> extends true
+    ? "a route starts at one entity: give one route per base"
+    : IsUnion<P> extends true
+      ? "a route reaches one provider: give one route per provider"
+      : Ok;
+
 /** A provider as the graph keeps it. */
 export interface ProviderDef<Meta> extends ProviderBase {
   /** the id of the loader whose value it projects */
@@ -775,7 +783,7 @@ export interface CatalogEntry<Meta> {
 }
 
 /**
- * What `hopgraph<Ctx, Meta, Conn>().entities({...})` returns: one statement per loader, hydrator,
+ * What `hopgraph<Meta, Conn, Ctx>().entities({...})` returns: one statement per loader, hydrator,
  * relation, provider and route, each checked by the compiler at its call site (DESIGN.md §7) and
  * refused at declaration time when it contradicts itself.
  */
@@ -873,16 +881,25 @@ export interface GraphBuilder<E extends Entities, Ctx, Meta, Conn extends string
     ...paths: Ps
   ): Combined<Ps[number]["from"], Ps[number]["to"]>;
 
-  /** How rows of `base` reach `provider`: a path (`itself(base)` when the provider is keyed by
-   *  the base), or a union of paths. Declares nothing until `graph(...routes)` takes it. */
+  /** The route of a provider keyed by `base`, as `route(base, provider, itself(base))`. Declares
+   *  nothing until `graph(...routes)` takes it. */
+  route<B extends keyof E & string, P extends ProviderBase>(
+    base: B,
+    provider: P &
+      OneRoute<
+        B,
+        P,
+        P["entity"] extends B
+          ? unknown
+          : `provider "${P["id"]}" is keyed by "${P["entity"]}": give a path from "${B}" to it`
+      >,
+  ): Route<B, P>;
+  /** How rows of `base` reach `provider`: a path, or a union of paths. Declares nothing until
+   *  `graph(...routes)` takes it. */
   route<B extends keyof E & string, P extends ProviderBase>(
     base: B,
     provider: P,
-    how: IsUnion<B> extends true
-      ? "a route starts at one entity: give one route per base"
-      : IsUnion<P> extends true
-        ? "a route reaches one provider: give one route per provider"
-        : RouteHow<NoInfer<B>, P["entity"]>,
+    how: OneRoute<B, P, RouteHow<NoInfer<B>, P["entity"]>>,
   ): Route<B, P>;
 
   /**
@@ -908,11 +925,11 @@ export interface GraphBuilder<E extends Entities, Ctx, Meta, Conn extends string
 }
 
 /**
- * Starts a graph. Type arguments first (no partial inference in TypeScript): `Ctx` is what a run
- * carries (`undefined` for a graph whose runs carry nothing: a run may then leave `ctx` out),
- * `Meta` what every field must say about itself, `Conn` the connector names.
+ * Starts a graph. Type arguments first (no partial inference in TypeScript): `Meta` is what every
+ * field must say about itself, `Conn` the connector names, `Ctx` what a run carries (`undefined`
+ * by default, for a graph whose runs carry nothing: a run may then leave `ctx` out).
  */
-export function hopgraph<Ctx, Meta, Conn extends string = string>() {
+export function hopgraph<Meta, Conn extends string = string, Ctx = undefined>() {
   return {
     entities<const E extends Entities>(entities: E): GraphBuilder<E, Ctx, Meta, Conn> {
       return builder<Meta>(
@@ -1038,7 +1055,8 @@ function builder<Meta>(entities: Readonly<Record<string, EntityDef>>) {
     if (!isRouteHow(how))
       throw new DefinitionError(
         "HG_SPEC",
-        `route "${base}" › "${provider.id}": how must be g.path(...), g.itself(base) or g.union(...)`,
+        `route "${base}" › "${provider.id}": how must be g.path(...), g.itself(base) or g.union(...); ` +
+          "g.route leaves it out only for a provider keyed by the base",
       );
     const route: RouteDef = { base, provider: provider.id, how };
     // the types check the chain; a route from a cast or plain JavaScript is checked here
@@ -1181,10 +1199,16 @@ function builder<Meta>(entities: Readonly<Record<string, EntityDef>>) {
       return combined(paths);
     },
 
-    route(base: string, provider: ProviderDef<Meta>, how: RouteDef["how"]): AnyRoute {
-      const route = { kind: "route", base, provider, how } as const;
-      routeDef(route);
-      return route;
+    route(base: string, provider: ProviderDef<Meta>, how?: RouteDef["how"]): AnyRoute {
+      // left out, `how` is the base itself, and only a provider keyed by the base has that route
+      const itself: Path<string, string> = { kind: "path", from: base, to: base, relations: [] };
+      const route = {
+        kind: "route",
+        base,
+        provider,
+        how: how ?? (provider?.entity === base ? itself : undefined),
+      } as const;
+      return { ...route, how: routeDef(route).how };
     },
 
     ref(entity: string, key: unknown, carries?: Attrs, row?: string): TypedRef<string> {

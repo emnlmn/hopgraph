@@ -65,16 +65,7 @@ startup, and a read by key where the profiles are needed. The whole program comp
 it is.
 
 ```ts
-import {
-  absent,
-  type CachedAnswer,
-  type CachePort,
-  createRunner,
-  entity,
-  envelope,
-  found,
-  hopgraph,
-} from "hopgraph";
+import { absent, createRunner, entity, envelope, found, hopgraph, memoryCache } from "hopgraph";
 import { z } from "zod";
 
 // The sources: two tables in memory. A real loader queries a database or calls an API.
@@ -85,8 +76,8 @@ const TRACKS = new Map([
 const ARTISTS = new Map([["a1", { name: "Mira Volk", country: "IT" }]]);
 
 type Meta = { readonly label: string }; // the metadata every field must carry
-// `undefined`: the runs of this graph carry no values or services, so a call gives no `ctx`
-const g = hopgraph<undefined, Meta, "db">().entities({
+// no `Ctx`: the runs of this graph carry no values or services, so a call gives no `ctx`
+const g = hopgraph<Meta, "db">().entities({
   track: entity({ key: z.string() }),
   artist: entity({ key: z.string() }),
 });
@@ -139,16 +130,10 @@ const profile = g.provider("artistProfile", {
 // track's performer). Its type knows them: asking `profile` for rows of an artist does not compile.
 const graph = g.graph(g.route("track", profile, g.path(performer)));
 
-// Once, at startup: the graph and what holds for the process. Here a cache every call shares (a
-// real one maps each retention to a time to live) and a limit of concurrent loads per connector.
-const store = new Map<string, CachedAnswer>();
-const cache: CachePort = {
-  getMany: async (keys) => new Map(keys.flatMap((k) => (store.has(k) ? [[k, store.get(k)!]] : []))),
-  setMany: async (entries) => {
-    for (const e of entries) store.set(e.key, e.answer);
-  },
-};
-const runner = createRunner(graph, { cache, limits: { db: 8 } });
+// Once, at startup: the graph and what holds for the process. Here a cache every call shares (in
+// memory; an app with several processes gives its own port) and a limit of concurrent loads per
+// connector.
+const runner = createRunner(graph, { cache: memoryCache(), limits: { db: 8 } });
 
 // At each call site: keys of one entity, the providers, and what holds for this call.
 const result = await runner.read("track", ["t1", "t2"], [profile], {
@@ -194,12 +179,12 @@ compile errors; and a run or a read that asks a provider for rows of an entity n
 to.
 
 ```ts
-const g = hopgraph<Ctx, Meta, Conn>().entities({ track, artist, email });
+const g = hopgraph<Meta, Conn, Ctx>().entities({ track, artist, email });
 ```
 
-`Ctx` is what a run carries (`{ today: string; db: Pool }`; `undefined` for a graph whose runs
-carry nothing, and then a call leaves `ctx` out), `Meta` the metadata every field must carry (a
-label, a description; the library never reads it), `Conn` the connector names.
+`Meta` is the metadata every field must carry (a label, a description; the library never reads
+it), `Conn` the connector names, `Ctx` what a run carries (`{ today: string; db: Pool }`;
+`undefined` by default, for a graph whose runs carry nothing, and then a call leaves `ctx` out).
 
 ### Entities
 
@@ -251,6 +236,21 @@ A per-ref cap belongs in the query (`QUALIFY ROW_NUMBER() OVER (PARTITION BY key
 load reports the keys it cut, as `found(value, { cuts: [{ kind: "cap", limit: 50 }] })`: a cut
 answer is never mistaken for a whole one.
 
+#### Share a source's settings across loaders
+
+Loaders of one source repeat its `connectors` and `batch`. Spread one object that holds both:
+
+```ts
+const db = { connectors: { allOf: ["db"] }, batch: { by: "keys", max: 100 } } as const;
+
+const tracks = g.loader({ id: "tracks", keyedBy: "track", ...db, load: loadTracks });
+const artists = g.loader({ id: "artists", keyedBy: "artist", ...db, load: loadArtists });
+```
+
+`as const` is required: without it `connectors` is a list of any strings, not the non-empty tuple
+of the graph's connectors that the compiler asks for. The compiler still refuses a connector the
+graph does not have, and an option written after the spread replaces the preset's.
+
 ### Hydrators
 
 `g.hydrator(entity, loader, project)`: the loader that gives an entity's carried attributes, read
@@ -299,28 +299,34 @@ pickers, search and docs.
 
 ### Routes, and the graph test
 
-`g.route(base, provider, how)` makes a route, where `how` is `g.path(r1, r2, …)`, `g.itself(base)`
-for a provider keyed by the base, or `g.union(...)` of paths (every path on every row). It declares
-nothing on its own: `g.graph(...routes)` takes the graph's routes, all of them, and its type keeps
-every (base, provider) pair they join.
+`g.route(base, provider, how)` makes a route, where `how` is `g.path(r1, r2, …)` or `g.union(...)`
+of paths (every path on every row). A provider keyed by the base needs no `how`: `g.route(base,
+provider)` is `g.route(base, provider, g.itself(base))`. It declares nothing on its own:
+`g.graph(...routes)` takes the graph's routes, all of them, and its type keeps every (base,
+provider) pair they join.
 
 ```ts
 export const graph = g.graph(
-  g.route("track", streams, g.itself("track")),
+  g.route("track", streams),
   g.route("track", profile, g.path(performer)),
-  g.route("artist", profile, g.itself("artist")),
+  g.route("artist", profile),
 );
 ```
 
+`g.itself(base)` is the path of no relation: write it as one path of a union, such as
+`g.union(g.itself("artist"), g.path(referral))`, where `referral` goes from artist to artist (a
+union's paths share both ends).
+
 The compiler refuses a path that does not chain, with the place it breaks, a path that does not
-start at the route's base or end at the provider's entity, and `itself` for a provider keyed by
-another entity. Then, at every call site: a run or a read that asks a provider for rows of an
-entity it has no route from does not compile, with the provider and the entity in the message
-(`provider "trackStreams" has no route from "artist"`). The check needs the rows' entities as
-literals: `read` always has one, and `run` has them when its `refs` are written out or made by
-`g.ref`. Rows built otherwise (`entity: string`) only ask that some route reaches each provider, and
-a provider asked by an id the compiler cannot know (`string`, a field picker's) asks nothing. In
-every case the run refuses what slipped through (`HG_NO_ROUTE`) before it reads anything.
+start at the route's base or end at the provider's entity, `itself` for a provider keyed by another
+entity, and a route with no `how` for one. Then, at every call site: a run or a read that asks a
+provider for rows of an entity it has no route from does not compile, with the provider and the
+entity in the message (`provider "trackStreams" has no route from "artist"`). The check needs the
+rows' entities as literals: `read` always has one, and `run` has them when its `refs` are written
+out or made by `g.ref`. Rows built otherwise (`entity: string`) only ask that some route reaches
+each provider, and a provider asked by an id the compiler cannot know (`string`, a field picker's)
+asks nothing. In every case the run refuses what slipped through (`HG_NO_ROUTE`) before it reads
+anything.
 
 `g.ref(entity, key, carries?, row?)` makes a base row for `run` the way `read` takes a key: the key
 typed by what the entity's key schema accepts, every context attribute required, and the entity's
@@ -357,11 +363,23 @@ for a script, a test, or a call that has no runner at hand. A runner's `run(call
 options)` with the env's options.
 
 Steps that do not depend on each other run side by side; every read of one loader in one wave,
-whatever step asked, is one job: one cache lookup, one price, one set of calls. A provider asked as
-declared (`[profile]`) types its rows' fields, and its key is certain only when the list is written
-out and that element is one provider (not `cond ? a : b`, not an array); asked by id, a provider's
-fields are untyped, so a field picker can ask by name. `run`, a runner's `run` and `read` type
-their results alike.
+whatever step asked, is one job: one cache lookup, one price, one set of calls. `run`, a runner's
+`run` and `read` type their results alike.
+
+### Ask for providers as values or as ids
+
+A call names each provider by the value `g.provider` returned, or by its id. Ask for values
+wherever the code knows the providers, and for ids only where a person picks them at run time, as a
+field picker does.
+
+| Asked as                         | Chosen                         | Rows                           | Route                                                              |
+| -------------------------------- | ------------------------------ | ------------------------------ | ------------------------------------------------------------------ |
+| **Values**: `[summary, profile]` | in the code                    | typed by the provider's fields | checked at compile time: a provider with no route does not compile |
+| **Ids**: `["trackSummary"]`      | at run time, by a field picker | `Attrs`: fields of any name    | checked at run time: `HG_NO_ROUTE`, before anything is read        |
+
+An id written out as a literal has its route checked at compile time too, but its rows stay
+`Attrs`. A value's key in the result is certain only when the list is written out and that element
+is one provider (not `cond ? a : b`, not an array); an id's key is any string, and may be missing.
 
 ### The process and the call
 
@@ -432,6 +450,18 @@ Web Crypto's `crypto.subtle.sign`, does not fit it.
 | `fatal`     | none                                | Errors that reject the run instead of failing their keys (a spent quota). A `CostChangedError` always does.                                                                                                 |
 | `retryable` | none                                | Errors worth trying again, as the loader's `retry` says.                                                                                                                                                    |
 | `clock`     | `Date.now`                          | The time the deadline is read against.                                                                                                                                                                      |
+
+### Cache in memory
+
+`memoryCache(options)` makes a `CachePort` in the process's memory, for tests, prototypes and
+single-process apps. An app with several processes supplies its own port (Redis, a framework
+cache), so that they share what they read.
+
+| Option  | Default                                               | Meaning                                                                                                                           |
+| ------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `max`   | `10_000`                                              | The most entries it holds. The oldest written is dropped first, and a key written again is the newest.                            |
+| `ttl`   | `{ day: 86_400_000, hour: 3_600_000, brief: 60_000 }` | How long each retention keeps an answer, in ms; a retention not given keeps its default. A read drops an expired answer it meets. |
+| `clock` | `Date.now`                                            | The time each `ttl` is measured against, in epoch ms.                                                                             |
 
 ### Options of a call: `RunCall`
 

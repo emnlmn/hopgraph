@@ -1,13 +1,14 @@
 // Runs the playlist example twice through examples/metrics.ts, over one cache: the first run loads
 // every key, the second finds them all in the cache.
 
+import { memoryCache } from "hopgraph";
 import { describe, expect, it } from "vitest";
 import { metrics } from "./metrics.ts";
-import { example, MemoryCache } from "./playlist.ts";
+import { example } from "./playlist.ts";
 
 describe("examples/metrics", () => {
   it("keeps each loader's jobs, keys, cache hits, calls and time; the hit ratio rises once the cache is warm", async () => {
-    const cache = new MemoryCache();
+    const cache = memoryCache();
     const cold = metrics();
     await example({ tracer: cold.tracer, cache });
 

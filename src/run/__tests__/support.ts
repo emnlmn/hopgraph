@@ -65,7 +65,7 @@ export const region = entity({ key: z.string() });
 export const email = entity({ key: z.string(), personal: true });
 
 export const newGraph = () =>
-  hopgraph<Ctx, Meta, Conn>().entities({ track, artist, master, studio, region, email });
+  hopgraph<Meta, Conn, Ctx>().entities({ track, artist, master, studio, region, email });
 
 /** The common part of a loader that is free, reads in one job, keeps found for a day and absent
  *  briefly, and keeps the keys that answered when a statement fails. */

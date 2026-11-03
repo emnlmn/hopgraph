@@ -11,7 +11,7 @@ import { type RefNode, RefStore, showKeys } from "../refs.ts";
 import { absentTally, foundTally, outcomeOf, type Tally, unknownTally } from "../tally.ts";
 import { walkPath } from "../walk.ts";
 
-const entities = hopgraph<object, unknown>()
+const entities = hopgraph<unknown, string, object>()
   .entities({
     track: entity({ key: z.string() }),
     email: entity({ key: z.string(), personal: true }),

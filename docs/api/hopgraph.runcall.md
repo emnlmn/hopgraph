@@ -4,7 +4,7 @@
 
 ## RunCall type
 
-What holds for one call: the base rows, the providers, the run's values, who reads, how long the caller waits, and the approvals. `ctx` may be left out when the graph's `Ctx` admits `undefined` (a graph built with `hopgraph<undefined, …>()`<!-- -->); otherwise it is required and checked against the graph's `Ctx`<!-- -->. `Rs` is the type of the base rows: when their entities are literals, `run` checks every provider against the graph's routes from each of them. README, "The runner", says why each option is here and not in `RunEnv`<!-- -->.
+What holds for one call: the base rows, the providers, the run's values, who reads, how long the caller waits, and the approvals. `ctx` may be left out when the graph's `Ctx` admits `undefined` (a graph built with `hopgraph<Meta>()`<!-- -->); otherwise it is required and checked against the graph's `Ctx`<!-- -->. `Rs` is the type of the base rows: when their entities are literals, `run` checks every provider against the graph's routes from each of them. README, "The runner", says why each option is here and not in `RunEnv`<!-- -->.
 
 **Signature:**
 

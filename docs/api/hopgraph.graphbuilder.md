@@ -4,7 +4,7 @@
 
 ## GraphBuilder interface
 
-What `hopgraph<Ctx, Meta, Conn>().entities({...})` returns: one statement per loader, hydrator, relation, provider and route, each checked by the compiler at its call site (DESIGN.md §7) and refused at declaration time when it contradicts itself.
+What `hopgraph<Meta, Conn, Ctx>().entities({...})` returns: one statement per loader, hydrator, relation, provider and route, each checked by the compiler at its call site (DESIGN.md §7) and refused at declaration time when it contradicts itself.
 
 **Signature:**
 
@@ -126,12 +126,23 @@ A relation `from › to:name`<!-- -->: its strategies project loaders' values in
 </td></tr>
 <tr><td>
 
-[route(base, provider, how)](./hopgraph.graphbuilder.route.md)
+[route(base, provider)](./hopgraph.graphbuilder.route.md)
 
 
 </td><td>
 
-How rows of `base` reach `provider`<!-- -->: a path (`itself(base)` when the provider is keyed by  the base), or a union of paths. Declares nothing until `graph(...routes)` takes it.
+The route of a provider keyed by `base`<!-- -->, as `route(base, provider, itself(base))`<!-- -->. Declares  nothing until `graph(...routes)` takes it.
+
+
+</td></tr>
+<tr><td>
+
+[route(base, provider, how)](./hopgraph.graphbuilder.route_1.md)
+
+
+</td><td>
+
+How rows of `base` reach `provider`<!-- -->: a path, or a union of paths. Declares nothing until  `graph(...routes)` takes it.
 
 
 </td></tr>

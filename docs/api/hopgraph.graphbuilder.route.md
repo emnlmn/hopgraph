@@ -4,12 +4,12 @@
 
 ## GraphBuilder.route() method
 
-How rows of `base` reach `provider`<!-- -->: a path (`itself(base)` when the provider is keyed by  the base), or a union of paths. Declares nothing until `graph(...routes)` takes it.
+The route of a provider keyed by `base`<!-- -->, as `route(base, provider, itself(base))`<!-- -->. Declares  nothing until `graph(...routes)` takes it.
 
 **Signature:**
 
 ```typescript
-route<B extends keyof E & string, P extends ProviderBase>(base: B, provider: P, how: IsUnion<B> extends true ? "a route starts at one entity: give one route per base" : IsUnion<P> extends true ? "a route reaches one provider: give one route per provider" : RouteHow<NoInfer<B>, P["entity"]>): Route<B, P>;
+route<B extends keyof E & string, P extends ProviderBase>(base: B, provider: P & OneRoute<B, P, P["entity"] extends B ? unknown : `provider "${P["id"]}" is keyed by "${P["entity"]}": give a path from "${B}" to it`>): Route<B, P>;
 ```
 
 ## Parameters
@@ -51,21 +51,7 @@ provider
 
 </td><td>
 
-P
-
-
-</td><td>
-
-
-</td></tr>
-<tr><td>
-
-how
-
-
-</td><td>
-
-IsUnion&lt;B&gt; extends true ? "a route starts at one entity: give one route per base" : IsUnion&lt;P&gt; extends true ? "a route reaches one provider: give one route per provider" : [RouteHow](./hopgraph.routehow.md)<!-- -->&lt;NoInfer&lt;B&gt;, P\["entity"\]&gt;
+P &amp; OneRoute&lt;B, P, P\["entity"\] extends B ? unknown : \`provider "${P\["id"\]}" is keyed by "${P\["entity"\]}": give a path from "${B}" to it\`&gt;
 
 
 </td><td>

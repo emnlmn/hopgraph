@@ -22,7 +22,7 @@ class Quota extends Error {
 }
 
 const graph = () =>
-  hopgraph<Record<string, never>, { readonly label: string }, "db" | "wh">().entities({
+  hopgraph<{ readonly label: string }, "db" | "wh", Record<string, never>>().entities({
     track: entity({ key: text }),
   });
 

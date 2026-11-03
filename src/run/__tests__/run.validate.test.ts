@@ -63,7 +63,7 @@ function build(rows: Readonly<Record<string, TrackRow>>) {
       found: { a1: { name: "Mira Volk" }, a5: { name: "Ines Holt" } },
     }),
   };
-  const g = hopgraph<Ctx, Meta, Conn>().entities({ track, artist });
+  const g = hopgraph<Meta, Conn, Ctx>().entities({ track, artist });
   const tracksL = g.loader({
     ...free,
     id: "tracks",
@@ -190,7 +190,7 @@ describe("run: validating base rows", () => {
         },
       },
     };
-    const g = hopgraph<Ctx, Meta, Conn>().entities({ isrc: entity({ key: touchy }) });
+    const g = hopgraph<Meta, Conn, Ctx>().entities({ isrc: entity({ key: touchy }) });
     const isrcs = fake<number>({ found: { ok: 1 } });
     const refs = ["ok", "TRK-0042"].map((k, i) => ({ row: `r${i}`, entity: "isrc", key: k }));
     const error = await run(
@@ -290,7 +290,7 @@ describe("run: validating what sources say", () => {
 describe("run: strict envelopes", () => {
   /** A loader of track play counts whose envelope says what the test makes it say. */
   function lying(say: (keys: readonly string[]) => Envelope<string, number>) {
-    const g = hopgraph<Ctx, Meta, Conn>().entities({ track: entity({ key: z.string() }) });
+    const g = hopgraph<Meta, Conn, Ctx>().entities({ track: entity({ key: z.string() }) });
     return (validate: RunOptions<Ctx>["validate"]) =>
       run(
         g.graph(

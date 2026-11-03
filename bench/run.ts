@@ -51,7 +51,7 @@ function instant<V>(answer: (key: string) => V | undefined) {
 const n = (key: string) => Number(key.slice(1));
 
 function catalog() {
-  const g = hopgraph<Record<string, never>, { readonly label: string }>().entities({
+  const g = hopgraph<{ readonly label: string }, string, Record<string, never>>().entities({
     track: entity({ key: text }),
     artist: entity({ key: text, personal: true }),
     venue: entity({ key: text }),

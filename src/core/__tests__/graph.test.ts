@@ -23,7 +23,7 @@ const artist = entity({ key: z.string(), carries: { country: z.string() } });
 const email = entity({ key: z.string(), personal: true });
 
 function build() {
-  const g = hopgraph<Ctx, Meta, "db" | "warehouse">().entities({ track, artist, email });
+  const g = hopgraph<Meta, "db" | "warehouse", Ctx>().entities({ track, artist, email });
 
   const trackHeader = g.loader({
     id: "trackHeader",
@@ -214,6 +214,7 @@ describe("hopgraph builder: types", () => {
     const graph = g.graph(fromTrack, fromArtist);
 
     expectTypeOf(fromTrack).toEqualTypeOf<Route<"track", typeof streams>>();
+    expectTypeOf(g.route("track", streams)).toEqualTypeOf<typeof fromTrack>();
     type RoutesOf<G extends { readonly _types?: { readonly routes: (r: never) => unknown } }> =
       ReturnType<NonNullable<G["_types"]>["routes"]>;
     expectTypeOf<RoutesOf<typeof graph>>().toEqualTypeOf<typeof fromTrack | typeof fromArtist>();
@@ -528,6 +529,16 @@ function refusals() {
   const either = (pick: boolean) => (pick ? streams : catalogue);
   // @ts-expect-error: a route reaches one provider
   g.route("track", either(true), g.itself("track"));
+
+  // a path is left out only for a provider keyed by the base, and still for one base, one provider
+  // @ts-expect-error: streams is keyed by track: from artist it needs a path
+  g.route("artist", streams);
+  (["track", "artist"] as const).map((base) =>
+    // @ts-expect-error: a route starts at one entity (streams is keyed by one of them)
+    g.route(base, streams),
+  );
+  // @ts-expect-error: a route reaches one provider
+  g.route("track", either(true));
   return warehouse;
 }
 
@@ -602,7 +613,7 @@ describe("hopgraph builder: runtime", () => {
       expect(loader({ batch }), JSON.stringify(batch)).toThrow(
         expect.objectContaining({ code: "HG_SPEC" }),
       );
-    for (const how of ["itself", undefined, { kind: "path" }, { kind: "union", paths: "x" }])
+    for (const how of ["itself", { kind: "path" }, { kind: "union", paths: "x" }])
       expect(() => g.route("track", streams, how as never), JSON.stringify(how)).toThrow(
         expect.objectContaining({ code: "HG_SPEC" }),
       );
@@ -661,6 +672,28 @@ describe("hopgraph builder: routes", () => {
     );
   });
 
+  it("takes the base itself as the path of a provider keyed by the base, and of no other", () => {
+    const { g, recent, streams } = build();
+    const shortForm = g.route("track", streams);
+
+    expect(shortForm).toEqual(g.route("track", streams, g.itself("track")));
+    expect(g.graph(shortForm).routes).toEqual([
+      { base: "track", provider: "trackStreams", how: g.itself("track") },
+    ]);
+    // streams is keyed by track: from another entity a path is needed, however it is left out
+    for (const how of [undefined, null] as const)
+      expect(() => g.route("artist", streams, how as never)).toThrow(
+        expect.objectContaining({
+          code: "HG_SPEC",
+          message: expect.stringContaining("keyed by the base"),
+        }),
+      );
+    expect(() => g.route("artist", streams, g.path(recent))).not.toThrow();
+    expect(() => g.route("track", undefined as never)).toThrow(
+      expect.objectContaining({ code: "HG_SPEC" }),
+    );
+  });
+
   it("a route declares nothing until a graph is given it, and a graph has the routes it is given", () => {
     const { g, streams } = build();
     const route = g.route("track", streams, g.itself("track"));
@@ -683,10 +716,12 @@ describe("hopgraph builder: routes", () => {
     const theirs = other.g.route("track", other.streams, other.g.itself("track"));
     const itself = g.itself("track");
     // what g.route makes, but for one field: no kind, a base that is not a name, a how that is not
+    // (or none: only g.route takes the base itself for it)
     const unmade = [
       { base: "track", provider: streams, how: itself },
       { kind: "route", base: 1, provider: streams, how: itself },
       { kind: "route", base: "track", provider: streams, how: "itself" },
+      { kind: "route", base: "track", provider: streams },
     ];
 
     expect(() => g.graph(route, route)).toThrow(expect.objectContaining({ code: "HG_DUPLICATE" }));
@@ -726,7 +761,7 @@ describe("checkGraph", () => {
   });
 
   it("flags an unused loader and an entity whose needed attributes have no hydrator", () => {
-    const g = hopgraph<Ctx, Meta>().entities({ track, artist, email });
+    const g = hopgraph<Meta, string, Ctx>().entities({ track, artist, email });
     g.loader({
       id: "lonely",
       version: 1,
@@ -751,7 +786,7 @@ describe("checkGraph", () => {
       carries: { releasedAt: z.string() },
       context: ["releasedAt"],
     });
-    const g2 = hopgraph<Ctx, Meta>().entities({ track: ctxTrack });
+    const g2 = hopgraph<Meta, string, Ctx>().entities({ track: ctxTrack });
     g2.relation("track", "track", "same", {
       cardinality: "1:1",
       strategies: (s) => [

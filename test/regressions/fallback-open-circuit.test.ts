@@ -26,7 +26,7 @@ class Down extends Error {
  *  `primary`'s first failure; `profiled` is the artist with a profile. */
 function build(profiled: "a1" | "a2") {
   const source = { down: false };
-  const g = hopgraph<Record<string, never>, { readonly label: string }>().entities({
+  const g = hopgraph<{ readonly label: string }, string, Record<string, never>>().entities({
     track: entity({ key: text }),
     artist: entity({ key: text }),
   });

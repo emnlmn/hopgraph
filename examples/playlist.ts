@@ -13,13 +13,13 @@ import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import {
   absent,
-  type CachedAnswer,
   type CachePort,
   createRunner,
   entity,
   envelope,
   found,
   hopgraph,
+  memoryCache,
   type RunResult,
   type Schema,
   type Tracer,
@@ -82,8 +82,8 @@ const text: Schema<string> = {
 type Meta = { readonly label: string };
 const label = (name: string) => ({ meta: { label: name } });
 
-// `undefined`: the runs of this graph carry no ctx, so a call leaves it out
-const g = hopgraph<undefined, Meta, "db" | "labelApi">().entities({
+// no `Ctx`: the runs of this graph carry none, so a call leaves it out
+const g = hopgraph<Meta, "db" | "labelApi">().entities({
   track: entity({ key: text }),
   artist: entity({ key: text }),
 });
@@ -147,28 +147,12 @@ const labelName = g.provider("labelName", {
 });
 
 export const graph = g.graph(
-  g.route("track", trackSummary, g.itself("track")),
+  g.route("track", trackSummary),
   g.route("track", artistProfile, g.path(performer)),
   g.route("track", labelName, g.path(performer)),
 );
 
 // ---------------------------------------------------------------- a read
-
-/** The smallest cache port: a map. A real one maps each retention to a time to live. */
-export class MemoryCache implements CachePort {
-  private readonly store = new Map<string, CachedAnswer>();
-  async getMany(keys: readonly string[]) {
-    const hits = new Map<string, CachedAnswer>();
-    for (const key of keys) {
-      const hit = this.store.get(key);
-      if (hit) hits.set(key, hit);
-    }
-    return hits;
-  }
-  async setMany(entries: Parameters<CachePort["setMany"]>[0]) {
-    for (const e of entries) this.store.set(e.key, e.answer);
-  }
-}
 
 /**
  * Five tracks read by their keys, over a cache of its own unless one is given, reported to
@@ -177,20 +161,20 @@ export class MemoryCache implements CachePort {
  */
 export function example(
   o: { readonly tracer?: Tracer; readonly cache?: CachePort } = {},
-): Promise<RunResult> {
+): Promise<RunResult<readonly [typeof trackSummary, typeof artistProfile, typeof labelName]>> {
   const runner = createRunner(graph, {
-    cache: o.cache ?? new MemoryCache(),
+    cache: o.cache ?? memoryCache(),
     ...(o.tracer ? { tracer: o.tracer } : {}),
     // the label service is switched off in this deployment: its fields are unknown, never empty
     readable: (connector) => (connector === "labelApi" ? "disabled" : true),
     limits: { db: 4 },
     digest: (_entity, keyId) => createHash("sha256").update(keyId).digest("hex").slice(0, 12),
   });
-  // providers by id, as a field picker asks for them: each row under its track's key
+  // providers as declared, so rows are typed (a field picker passes ids: ["trackSummary", …])
   return runner.read(
     "track",
     ["t1", "t2", "t3", "t4", "t5"],
-    ["trackSummary", "artistProfile", "labelName"],
+    [trackSummary, artistProfile, labelName],
   );
 }
 

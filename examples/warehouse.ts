@@ -22,7 +22,6 @@ import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import {
   absent,
-  type CachedAnswer,
   type CachePort,
   CostChangedError,
   createRunner,
@@ -30,6 +29,7 @@ import {
   envelope,
   found,
   hopgraph,
+  memoryCache,
   type ReadCall,
   type RunResult,
   type Schema,
@@ -77,7 +77,7 @@ const text: Schema<string> = {
   },
 };
 
-const g = hopgraph<undefined, { readonly label: string }, "db" | "warehouse">().entities({
+const g = hopgraph<{ readonly label: string }, "db" | "warehouse">().entities({
   artist: entity({ key: text }),
 });
 
@@ -138,28 +138,14 @@ const recentPlays = g.provider("recentPlays", {
   }),
 });
 
-export const graph = g.graph(
-  g.route("artist", profile, g.itself("artist")),
-  g.route("artist", recentPlays, g.itself("artist")),
-);
+export const graph = g.graph(g.route("artist", profile), g.route("artist", recentPlays));
 
 // ---------------------------------------------------------------- the runs
-
-/** The smallest cache port: a map. A real one maps each retention to a time to live. */
-export class MemoryCache implements CachePort {
-  private readonly store = new Map<string, CachedAnswer>();
-  async getMany(keys: readonly string[]) {
-    return new Map(keys.flatMap((k) => (this.store.has(k) ? [[k, this.store.get(k)!]] : [])));
-  }
-  async setMany(entries: Parameters<CachePort["setMany"]>[0]) {
-    for (const e of entries) this.store.set(e.key, e.answer);
-  }
-}
 
 type Asked = readonly [typeof profile, typeof recentPlays];
 
 /** An instance of the application: its runner, made once at startup, over its own cache. */
-export function instance(cache: CachePort = new MemoryCache()) {
+export function instance(cache: CachePort = memoryCache()) {
   return createRunner(graph, {
     cache,
     limits: { db: 4, warehouse: 1 },

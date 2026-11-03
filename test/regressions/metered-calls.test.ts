@@ -20,7 +20,7 @@ const text: Schema<string> = {
 it("a metered loader's calls in one wave bill no more than its auto cap together", async () => {
   const SCAN = 20; // every statement scans this much, whatever its keys
   const bytes = (keys: number) => SCAN + keys; // and one byte per key
-  const g = hopgraph<Record<string, never>, { readonly label: string }>().entities({
+  const g = hopgraph<{ readonly label: string }, string, Record<string, never>>().entities({
     track: entity({ key: text }),
   });
   const tracks = g.loader({

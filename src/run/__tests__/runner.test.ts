@@ -1,9 +1,9 @@
-// The store a runner given no cache keeps (run/runner.ts `gateScopes`): the scopes of the gates its
+// The store a runner given no cache keeps (run/cache.ts `gateScopes`): the scopes of the gates its
 // runs stop at, each for the hour it is written for, and nothing else.
 
 import { describe, expect, it } from "vitest";
+import { gateScopes } from "../cache.ts";
 import { scopeKey } from "../ids.ts";
-import { gateScopes } from "../runner.ts";
 import type { CachedAnswer } from "../types.ts";
 
 const SCOPE: CachedAnswer = { kind: "found", value: ["t1", "t2"] };

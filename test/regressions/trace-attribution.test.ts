@@ -32,7 +32,7 @@ class Timeout extends Error {
 /** Two ways from a track to its artist, each a fallback ending on the same artist API loader that
  *  times out; `slow` names the first strategy that answers last. */
 function graph(slow: { name: string }) {
-  const g = hopgraph<Record<string, never>, { readonly label: string }>().entities({
+  const g = hopgraph<{ readonly label: string }, string, Record<string, never>>().entities({
     track: entity({ key: text }),
     artist: entity({ key: text }),
   });

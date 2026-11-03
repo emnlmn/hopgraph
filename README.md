@@ -33,7 +33,7 @@ ESM, Node 20+, Deno, Bun. No runtime dependencies. Schemas are [Standard Schema]
 **1. Entities**: the things you read by key.
 
 ```ts
-const g = hopgraph<undefined, Meta, "db">().entities({
+const g = hopgraph<Meta, "db">().entities({
   track: entity({ key: z.string() }),
   artist: entity({ key: z.string() }),
 });
@@ -87,7 +87,7 @@ const graph = g.graph(g.route("track", profile, g.path(performer)));
 ## Read
 
 ```ts
-const runner = createRunner(graph, { cache, limits: { db: 8 } }); // once, at startup
+const runner = createRunner(graph, { cache: memoryCache(), limits: { db: 8 } }); // once, at startup
 
 const result = await runner.read("track", ["t1", "t2"], [profile]);
 
@@ -114,7 +114,7 @@ The full program is [`examples/playlist.ts`](examples/playlist.ts).
 
 - **Batching**: every read of one loader in a wave is one call, whatever asked for it.
 - **Scheduling**: independent reads run side by side; a fast one never waits for a slow one.
-- **Cache**: per key, through a port you provide (`getMany` / `setMany`).
+- **Cache**: per key, through a port you provide (`getMany` / `setMany`), or `memoryCache()` for tests and single-process apps.
 - **Cost gates**: a source billed by bytes is priced first; above a threshold the run stops and asks for an approval. Nothing is billed past it.
 - **Deadline and `AbortSignal`**: running loads are aborted, the rest is `unknown: deadline`.
 - **Resilience**: retries with backoff, circuit breakers and rate limits per connector, shared loads across concurrent runs.
