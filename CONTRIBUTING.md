@@ -15,6 +15,7 @@ Node 20 or later; `npm install` once.
 | `npm run lint`          | Lint and check formatting with Biome; `npx biome check --write .` fixes what it can.          |
 | `npm test`              | Run the unit tests: `src/**/__tests__`, the examples, `test/found`, `test/regressions`.       |
 | `npm run badge`         | Check that README.md's coverage badge shows the `lines` threshold in `vitest.config.ts`.      |
+| `npm run skill`         | Check that the code in `skills/hopgraph/SKILL.md` compiles against the source.                |
 | `npm run coverage`      | Run the unit tests with v8 coverage; fail under the threshold in `vitest.config.ts`.          |
 | `npm run test:props`    | Run the property tests in `test/props` from a seed (see below).                               |
 | `npm run build`         | Compile `src/` to `dist/` with `tsc`.                                                         |
@@ -78,6 +79,8 @@ test/found/        what the property tests found and is not decided yet, as skip
 test/regressions/  what the property tests or a review found and is fixed
 test/smoke/        the build imported and run, on Node, Deno and Bun
 bench/             the executor's own cost, the latency of sources of mixed paces, and their baselines
+bench/skill-eval/  what the agent skill changes for a coding agent: tasks, hidden tests, results
+skills/hopgraph/   the agent skill the package ships (SKILL.md, references/)
 api/               the public API report
 docs/api/          the API reference, generated from the doc comments
 ```

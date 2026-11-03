@@ -1,0 +1,58 @@
+[
+  {
+    "name": "catch-absent",
+    "expect": "fail",
+    "why": "a failed labels call answered as 'no label' (try/catch -> absent)",
+    "edits": [
+      {
+        "file": "src/graph.ts",
+        "old": "    const rows = await labelsApi.getMany(\n      refs.map((r) => r.key),\n      { signal },\n    );\n    return envelope(\n      refs.map((r) => {\n        const row = rows.get(r.key);\n        return [r.key, row ? found(row) : absent()];\n      }),\n    );",
+        "new": "    let rows = new Map<string, { name: string; country: string }>();\n    try {\n      rows = await labelsApi.getMany(\n        refs.map((r) => r.key),\n        { signal },\n      );\n    } catch {\n      // service down: show no label\n    }\n    return envelope(\n      refs.map((r) => {\n        const row = rows.get(r.key);\n        return [r.key, row ? found(row) : absent()];\n      }),\n    );"
+      }
+    ]
+  },
+  {
+    "name": "only-found",
+    "expect": "fail",
+    "why": "envelope built from the service's answer only: unknown label ids left out (failed, not absent)",
+    "edits": [
+      {
+        "file": "src/graph.ts",
+        "old": "    const rows = await labelsApi.getMany(\n      refs.map((r) => r.key),\n      { signal },\n    );\n    return envelope(\n      refs.map((r) => {\n        const row = rows.get(r.key);\n        return [r.key, row ? found(row) : absent()];\n      }),\n    );",
+        "new": "    const rows = await labelsApi.getMany(\n      refs.map((r) => r.key),\n      { signal },\n    );\n    return envelope([...rows].map(([id, row]) => [id, found(row)]));"
+      }
+    ]
+  },
+  {
+    "name": "by-one",
+    "expect": "fail",
+    "why": "batch by one: a call per label",
+    "edits": [
+      {
+        "file": "src/graph.ts",
+        "old": "  connectors: { allOf: [\"labels\"] },\n  batch: { by: \"keys\", max: 500 },",
+        "new": "  connectors: { allOf: [\"labels\"] },\n  batch: { by: \"one\", concurrency: 4 },"
+      }
+    ]
+  },
+  {
+    "name": "undefined-link",
+    "expect": "fail",
+    "why": "an unsigned artist linked to an undefined label id (fails its key schema: unknown, not absent)",
+    "edits": [
+      {
+        "file": "src/graph.ts",
+        "old": "project: (_ref, a) => (a.labelId ? [{ to: a.labelId }] : [])",
+        "new": "project: (_ref, a) => [{ to: a.labelId as string }]"
+      }
+    ]
+  },
+  {
+    "name": "artist-keyed-loader",
+    "expect": "pass",
+    "why": "another design: one loader keyed by artist reads the artist row then the labels service",
+    "files": {
+      "src/graph.ts": "// The catalog graph: what the app reads about tracks, and from where.\n\nimport { absent, entity, envelope, found, hopgraph } from \"hopgraph\";\nimport { z } from \"zod\";\nimport { db } from \"./sources/db.ts\";\nimport { labelsApi } from \"./sources/labels.ts\";\n\n/** What every field says about itself, for the field picker. */\nexport type Meta = { readonly label: string };\n\nconst g = hopgraph<Meta, \"db\" | \"labels\">().entities({\n  track: entity({ key: z.string() }),\n  artist: entity({ key: z.string() }),\n});\n\nconst tracks = g.loader({\n  id: \"tracks\",\n  keyedBy: \"track\",\n  connectors: { allOf: [\"db\"] },\n  batch: { by: \"keys\", max: 100 },\n  load: async (refs) => {\n    const rows = await db.tracks(refs.map((r) => r.key));\n    return envelope(\n      refs.map((r) => {\n        const row = rows.get(r.key);\n        return [r.key, row ? found(row) : absent()];\n      }),\n    );\n  },\n});\n\nconst artists = g.loader({\n  id: \"artists\",\n  keyedBy: \"artist\",\n  connectors: { allOf: [\"db\"] },\n  batch: { by: \"keys\", max: 100 },\n  load: async (refs) => {\n    const rows = await db.artists(refs.map((r) => r.key));\n    return envelope(\n      refs.map((r) => {\n        const row = rows.get(r.key);\n        return [r.key, row ? found(row) : absent()];\n      }),\n    );\n  },\n});\n\n// one loader keyed by artist: the artist row, then its label from the labels service\nconst artistLabels = g.loader({\n  id: \"artistLabels\",\n  keyedBy: \"artist\",\n  connectors: { allOf: [\"db\", \"labels\"] },\n  batch: { by: \"keys\", max: 500 },\n  load: async (refs, _ctx, _budget, signal) => {\n    const artistRows = await db.artists(refs.map((r) => r.key));\n    const ids = [...new Set([...artistRows.values()].flatMap((a) => (a.labelId ? [a.labelId] : [])))];\n    const rows = ids.length > 0 ? await labelsApi.getMany(ids, { signal }) : new Map();\n    return envelope(\n      refs.map((r) => {\n        const labelId = artistRows.get(r.key)?.labelId;\n        const row = labelId ? rows.get(labelId) : undefined;\n        return [r.key, row ? found(row as { name: string; country: string }) : absent()];\n      }),\n    );\n  },\n});\n\nconst performer = g.relation(\"track\", \"artist\", \"performer\", {\n  cardinality: \"N:1\",\n  strategies: (s) => [s(tracks, { project: (_ref, t) => [{ to: t.artistId }] })],\n});\n\nexport const trackInfo = g.provider(\"trackInfo\", {\n  loader: tracks,\n  temporal: \"current\",\n  rows: \"one\",\n  project: (t) => [{ title: t.title }],\n  raw: { title: { meta: { label: \"Title\" } } },\n});\n\nexport const artistProfile = g.provider(\"artistProfile\", {\n  loader: artists,\n  temporal: \"current\",\n  rows: \"one\",\n  project: (a) => [{ name: a.name, country: a.country }],\n  raw: { name: { meta: { label: \"Artist\" } }, country: { meta: { label: \"Artist country\" } } },\n});\n\nexport const labelInfo = g.provider(\"labelInfo\", {\n  loader: artistLabels,\n  temporal: \"current\",\n  rows: \"one\",\n  project: (l) => [{ name: l.name, country: l.country }],\n  raw: { name: { meta: { label: \"Label\" } }, country: { meta: { label: \"Label country\" } } },\n});\n\nexport const graph = g.graph(\n  g.route(\"track\", trackInfo),\n  g.route(\"track\", artistProfile, g.path(performer)),\n  g.route(\"track\", labelInfo, g.path(performer)),\n);\n"
+    }
+  }
+]

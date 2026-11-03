@@ -9,6 +9,11 @@ the guide, says which changes each kind of release may bring.
 
 ### Added
 
+- An agent skill in the package, `skills/hopgraph/` ([Agent Skills](https://agentskills.io)
+  format): what a coding agent needs to declare, run, test and debug a graph, with the rules the
+  types don't check. `npm run skill`, part of the check, compiles its code against the source.
+  `bench/skill-eval` measures what it changes for an agent: same correctness on four tickets, a
+  third less cost than with the guide.
 - Route a provider keyed by the base without a path: `g.route("track", summary)` is
   `g.route("track", summary, g.itself("track"))`. A provider of another entity still needs a path,
   and the compiler refuses a route that leaves it out.

@@ -141,6 +141,18 @@ your code reads rows from many sources and must tell missing data from unread da
 No query language, no transport, no writes, no path search at run time, no joins across providers.
 It's a function over values your loaders return.
 
+## For coding agents
+
+The package ships an [Agent Skill](https://agentskills.io/specification), `skills/hopgraph/`: the
+rules the types don't check, the shape of a graph, and how to add a source, debug an outcome and
+gate a billed read, in about 2,700 tokens. `npx skills-npm` links it into your agents' skill
+folders, or link it yourself:
+`ln -s ../../node_modules/hopgraph/skills/hopgraph .claude/skills/hopgraph`.
+
+On four tickets, a coding agent with the skill solved as many as without it, at half the cost of
+reading the package alone and a third less than with the full guide
+([bench/skill-eval](bench/skill-eval/README.md)).
+
 ## More
 
 - [Guide](docs/guide.md): every option with its default.

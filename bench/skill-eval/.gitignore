@@ -1,0 +1,8 @@
+# what the harness builds and runs: never committed
+.build.*/
+packages/*.tgz
+packages/BUILD-INFO.txt
+envs/
+runs/
+validation/
+__pycache__/
