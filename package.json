@@ -32,7 +32,8 @@
     "dist",
     "src",
     "!src/**/__tests__",
-    "DESIGN.md"
+    "DESIGN.md",
+    "skills"
   ],
   "engines": {
     "node": ">=20"
@@ -45,11 +46,12 @@
     "test:props": "vitest run --project props",
     "coverage": "vitest run --project unit --coverage",
     "badge": "node tools/badge.js",
+    "skill": "node tools/skill.js",
     "api": "api-extractor run",
     "api:update": "npm run build && api-extractor run --local && npm run docs:api",
     "docs:api": "api-documenter markdown -i temp -o docs/api",
     "smoke": "node test/smoke/smoke.js",
-    "check": "npm run typecheck && npm run lint && npm run badge && npm run coverage && npm run test:props && npm run build && npm run api && npm run smoke",
+    "check": "npm run typecheck && npm run skill && npm run lint && npm run badge && npm run coverage && npm run test:props && npm run build && npm run api && npm run smoke",
     "bench": "npm run build && node --expose-gc bench/run.ts",
     "bench:latency": "npm run build && node bench/latency.ts",
     "example": "npm run build && node examples/playlist.ts",

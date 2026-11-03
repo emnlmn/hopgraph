@@ -1,0 +1,77 @@
+[
+  {
+    "name": "catch-kept",
+    "expect": "fail",
+    "why": "bugs 1 and 3 fixed, the catch that answers absent on a db error kept",
+    "edits": [
+      {
+        "file": "src/graph.ts",
+        "old": "  load: async (refs) => {\n    const rows = await db.tracks(refs.map((r) => r.key));\n    return envelope(\n      refs.map((r) => {\n        const row = rows.get(r.key);\n        // rows of the 2019 import hold the artist id as a number: the artist key is a string\n        return [r.key, row ? found({ ...row, artistId: String(row.artistId) }) : absent()];\n      }),\n    );\n  },",
+        "new": "  load: async (refs) => {\n    try {\n      const rows = await db.tracks(refs.map((r) => r.key));\n      return envelope(\n        refs.map((r) => {\n          const row = rows.get(r.key);\n          return [r.key, row ? found({ ...row, artistId: String(row.artistId) }) : absent()];\n        }),\n      );\n    } catch {\n      return envelope(refs.map((r) => [r.key, absent()]));\n    }\n  },"
+      }
+    ]
+  },
+  {
+    "name": "validate-off",
+    "expect": "fail",
+    "why": "numeric ids 'fixed' by switching validation off: the number reaches the artists table and misses",
+    "edits": [
+      {
+        "file": "src/graph.ts",
+        "old": "found({ ...row, artistId: String(row.artistId) })",
+        "new": "found(row)"
+      },
+      {
+        "file": "src/page.ts",
+        "old": "const result = await runner.read(\"track\", trackIds, [trackInfo, artistProfile]);",
+        "new": "const result = await runner.read(\"track\", trackIds, [trackInfo, artistProfile], { validate: \"off\" });"
+      }
+    ]
+  },
+  {
+    "name": "only-found-kept",
+    "expect": "fail",
+    "why": "bugs 2 and 3 fixed, the artists envelope still lists only found keys",
+    "edits": [
+      {
+        "file": "src/graph.ts",
+        "old": "    return envelope(\n      refs.map((r) => {\n        const row = rows.get(r.key);\n        return [r.key, row ? found(row) : absent()];\n      }),\n    );\n  },\n});\n\nconst performer",
+        "new": "    return envelope([...rows].map(([id, row]) => [id, found(row)]));\n  },\n});\n\nconst performer"
+      }
+    ]
+  },
+  {
+    "name": "coerce-key",
+    "expect": "pass",
+    "why": "another fix of the numeric ids: the artist key schema coerces to a string",
+    "edits": [
+      {
+        "file": "src/graph.ts",
+        "old": "found({ ...row, artistId: String(row.artistId) })",
+        "new": "found(row)"
+      },
+      {
+        "file": "src/graph.ts",
+        "old": "  artist: entity({ key: z.string() }),",
+        "new": "  artist: entity({ key: z.coerce.string() }),"
+      }
+    ]
+  },
+  {
+    "name": "unknown-failed",
+    "expect": "pass",
+    "why": "another fix of the outage: the catch answers unknown({ reason: 'failed' })",
+    "edits": [
+      {
+        "file": "src/graph.ts",
+        "old": "import { absent, entity, envelope, found, hopgraph } from \"hopgraph\";",
+        "new": "import { absent, entity, envelope, found, hopgraph, unknown } from \"hopgraph\";"
+      },
+      {
+        "file": "src/graph.ts",
+        "old": "  load: async (refs) => {\n    const rows = await db.tracks(refs.map((r) => r.key));\n    return envelope(\n      refs.map((r) => {\n        const row = rows.get(r.key);\n        // rows of the 2019 import hold the artist id as a number: the artist key is a string\n        return [r.key, row ? found({ ...row, artistId: String(row.artistId) }) : absent()];\n      }),\n    );\n  },",
+        "new": "  load: async (refs) => {\n    try {\n      const rows = await db.tracks(refs.map((r) => r.key));\n      return envelope(\n        refs.map((r) => {\n          const row = rows.get(r.key);\n          return [r.key, row ? found({ ...row, artistId: String(row.artistId) }) : absent()];\n        }),\n      );\n    } catch {\n      return envelope(refs.map((r) => [r.key, unknown({ reason: \"failed\" })]));\n    }\n  },"
+      }
+    ]
+  }
+]

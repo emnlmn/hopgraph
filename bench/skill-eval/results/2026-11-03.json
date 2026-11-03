@@ -1,0 +1,2582 @@
+{
+ "date": "2026-11-03",
+ "hopgraph": "0733f4a (main, merge of strict-field-schemas)",
+ "model": "claude-sonnet-5-5",
+ "runs": [
+  {
+   "run": "<runs>/t1-add-source-A-1",
+   "task": "t1-add-source",
+   "cond": "A",
+   "rep": "1",
+   "grade": {
+    "task": "t1-add-source",
+    "cond": "A",
+    "rep": "1",
+    "tsc": {
+     "ok": true,
+     "errors": 0,
+     "errors_in_hidden": 0,
+     "first_errors": []
+    },
+    "tests": [
+     {
+      "name": "finds a track's label through its artist, with name and country",
+      "ok": true
+     },
+     {
+      "name": "an unsigned artist's track has labelInfo absent",
+      "ok": true
+     },
+     {
+      "name": "a label id the labels service does not know is absent",
+      "ok": true
+     },
+     {
+      "name": "labels service down: labelInfo is unknown with reason failed, not absent",
+      "ok": true
+     },
+     {
+      "name": "labels service down: artistProfile is still found",
+      "ok": true
+     },
+     {
+      "name": "a failure is not remembered: once the service is back the label is found",
+      "ok": true
+     },
+     {
+      "name": "30 tracks call the labels service once",
+      "ok": true
+     },
+     {
+      "name": "a second read of the same tracks is served without calling the labels service",
+      "ok": true
+     },
+     {
+      "name": "checkGraph from track reports no problem",
+      "ok": true
+     },
+     {
+      "name": "artistProfile and trackInfo are unchanged",
+      "ok": true
+     }
+    ],
+    "passed": 10,
+    "total": 10,
+    "fully_passed": true,
+    "visible": {
+     "passed": 12,
+     "total": 12
+    },
+    "changed": [
+     "src/graph.ts",
+     "src/runner.ts",
+     "test/label.test.ts"
+    ],
+    "config_changed": false,
+    "fakes_changed": [],
+    "seconds": {
+     "tsc": 1,
+     "vitest": 0
+    }
+   },
+   "metrics": {
+    "transcript": "<transcripts>/agent-aeval-t1-A-be377e5c9d9c5af2.jsonl",
+    "model": "claude-sonnet-5-5",
+    "turns": 15,
+    "tokens": {
+     "input": 30,
+     "cache_creation": 87674,
+     "cache_read": 925675,
+     "output": 12223,
+     "total": 1025602
+    },
+    "peak_context": 87676,
+    "final_context": 87676,
+    "tool_calls": {
+     "Bash": 16,
+     "Write": 1
+    },
+    "tool_calls_total": 17,
+    "tool_errors": 0,
+    "wall_seconds": 114.2,
+    "doc_chars_total": {
+     "DESIGN.md": 46949,
+     "dist d.ts": 17001,
+     "README.md": 6648,
+     "other node_modules/hopgraph": 4226
+    },
+    "doc_reads_total": {
+     "DESIGN.md": 4,
+     "dist d.ts": 4,
+     "other node_modules/hopgraph": 1,
+     "README.md": 1
+    },
+    "outside_sandbox": [],
+    "violations": []
+   },
+   "doc_reads": [
+    {
+     "tool_use_id": "toolu_012jeWkFajJcZWHRCKkYhiS1",
+     "tool": "Bash",
+     "target": "other node_modules/hopgraph",
+     "path": "package.json",
+     "chars": 4226,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01GGEKiJTqBLS7eNu3n59PZg",
+     "tool": "Bash",
+     "target": "README.md",
+     "path": "README.md",
+     "chars": 6648,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01UvmRXwe1bs5NSbr3HUuSFV",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 812,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01DqV22fKkp3vr8xqAEfk8ih",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 19985,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01BHW1YGvtJ4Y46KMVko6fci",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 10900,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01WNpTXf7uw6KQf8HVMzLRaf",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 15252,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_011T1hTLoRPMhDdhGQ9FW24L",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/core/check.d.ts",
+     "chars": 2940,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01XESxtZafE8wfTR5vbVvgHo",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/core/graph.d.ts",
+     "chars": 3236,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01FRETiULgE4BgXDppbxF7SN",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/core/outcome.d.ts",
+     "chars": 6415,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_0173WvFmkPZNBsLeGjjJhiid",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/run/types.d.ts",
+     "chars": 4410,
+     "shared": false
+    }
+   ]
+  },
+  {
+   "run": "<runs>/t1-add-source-B-1",
+   "task": "t1-add-source",
+   "cond": "B",
+   "rep": "1",
+   "grade": {
+    "task": "t1-add-source",
+    "cond": "B",
+    "rep": "1",
+    "tsc": {
+     "ok": true,
+     "errors": 0,
+     "errors_in_hidden": 0,
+     "first_errors": []
+    },
+    "tests": [
+     {
+      "name": "finds a track's label through its artist, with name and country",
+      "ok": true
+     },
+     {
+      "name": "an unsigned artist's track has labelInfo absent",
+      "ok": true
+     },
+     {
+      "name": "a label id the labels service does not know is absent",
+      "ok": true
+     },
+     {
+      "name": "labels service down: labelInfo is unknown with reason failed, not absent",
+      "ok": true
+     },
+     {
+      "name": "labels service down: artistProfile is still found",
+      "ok": true
+     },
+     {
+      "name": "a failure is not remembered: once the service is back the label is found",
+      "ok": true
+     },
+     {
+      "name": "30 tracks call the labels service once",
+      "ok": true
+     },
+     {
+      "name": "a second read of the same tracks is served without calling the labels service",
+      "ok": true
+     },
+     {
+      "name": "checkGraph from track reports no problem",
+      "ok": true
+     },
+     {
+      "name": "artistProfile and trackInfo are unchanged",
+      "ok": true
+     }
+    ],
+    "passed": 10,
+    "total": 10,
+    "fully_passed": true,
+    "visible": {
+     "passed": 13,
+     "total": 13
+    },
+    "changed": [
+     "src/graph.ts",
+     "src/runner.ts",
+     "test/labels.test.ts"
+    ],
+    "config_changed": false,
+    "fakes_changed": [],
+    "seconds": {
+     "tsc": 1,
+     "vitest": 0
+    }
+   },
+   "metrics": {
+    "transcript": "<transcripts>/agent-aeval-t1-B-03cb074edcd7c37c.jsonl",
+    "model": "claude-sonnet-5-5",
+    "turns": 12,
+    "tokens": {
+     "input": 24,
+     "cache_creation": 93336,
+     "cache_read": 732384,
+     "output": 13492,
+     "total": 839236
+    },
+    "peak_context": 93338,
+    "final_context": 93338,
+    "tool_calls": {
+     "Bash": 11,
+     "Read": 1
+    },
+    "tool_calls_total": 12,
+    "tool_errors": 0,
+    "wall_seconds": 118.2,
+    "doc_chars_total": {
+     "DESIGN.md": 17123,
+     "other node_modules/hopgraph": 4618,
+     "dist d.ts": 3967,
+     "README.md": 1108,
+     "docs/guide.md": 1108
+    },
+    "doc_reads_total": {
+     "DESIGN.md": 3,
+     "dist d.ts": 2,
+     "other node_modules/hopgraph": 1,
+     "README.md": 1,
+     "docs/guide.md": 1
+    },
+    "outside_sandbox": [],
+    "violations": []
+   },
+   "doc_reads": [
+    {
+     "tool_use_id": "toolu_01NWhaif4QsG7Phai988vRkx",
+     "tool": "Bash",
+     "target": "other node_modules/hopgraph",
+     "path": "package.json",
+     "chars": 4618,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01FwVRQTdekgGwrELrEB3K4Q",
+     "tool": "Bash",
+     "target": "README.md",
+     "path": "README.md",
+     "chars": 1108,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01FwVRQTdekgGwrELrEB3K4Q",
+     "tool": "Bash",
+     "target": "docs/guide.md",
+     "path": "docs/guide.md",
+     "chars": 1108,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01FA7RuQQvPTs8ji9zX8GpQp",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/core/check.d.ts",
+     "chars": 1150,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01FA7RuQQvPTs8ji9zX8GpQp",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 1150,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01FcnvcSEgN5NDa9RuMsRZXq",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 411,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01AwwkAJHNTpxNoHR2PnnMct",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 15562,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01NDWwF1ryo4HxhbqFRQ9Arp",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/run/types.d.ts",
+     "chars": 2817,
+     "shared": false
+    }
+   ]
+  },
+  {
+   "run": "<runs>/t2-debug-outcomes-A-1",
+   "task": "t2-debug-outcomes",
+   "cond": "A",
+   "rep": "1",
+   "grade": {
+    "task": "t2-debug-outcomes",
+    "cond": "A",
+    "rep": "1",
+    "tsc": {
+     "ok": true,
+     "errors": 0,
+     "errors_in_hidden": 0,
+     "first_errors": []
+    },
+    "tests": [
+     {
+      "name": "a current track's artist is found",
+      "ok": true
+     },
+     {
+      "name": "an artist removed from the catalog is absent, not unknown",
+      "ok": true
+     },
+     {
+      "name": "an artist removed from the catalog shows 'no profile'",
+      "ok": true
+     },
+     {
+      "name": "database down: artistProfile is unknown with reason failed, not absent",
+      "ok": true
+     },
+     {
+      "name": "database down: the page shows 'profile unavailable', never 'no profile'",
+      "ok": true
+     },
+     {
+      "name": "database back up: the next page shows the profiles again",
+      "ok": true
+     },
+     {
+      "name": "a 2019-imported track with a numeric artist id finds its artist",
+      "ok": true
+     },
+     {
+      "name": "a 2019-imported track shows 'profile' with its artist's name",
+      "ok": true
+     },
+     {
+      "name": "a 2019-imported track whose artist was removed shows 'no profile'",
+      "ok": true
+     },
+     {
+      "name": "a page of mixed tracks gives each its own text",
+      "ok": true
+     },
+     {
+      "name": "a page reads the artists table in one query",
+      "ok": true
+     },
+     {
+      "name": "profileLabel still maps found, absent and unknown to the three texts",
+      "ok": true
+     }
+    ],
+    "passed": 12,
+    "total": 12,
+    "fully_passed": true,
+    "visible": {
+     "passed": 12,
+     "total": 12
+    },
+    "changed": [
+     "src/graph.ts",
+     "test/artist-profile.test.ts"
+    ],
+    "config_changed": false,
+    "fakes_changed": [],
+    "seconds": {
+     "tsc": 0,
+     "vitest": 0
+    }
+   },
+   "metrics": {
+    "transcript": "<transcripts>/agent-aeval-t2-A-8d8e036e0f90b761.jsonl",
+    "model": "claude-sonnet-5-5",
+    "turns": 16,
+    "tokens": {
+     "input": 32,
+     "cache_creation": 75082,
+     "cache_read": 899961,
+     "output": 10883,
+     "total": 985958
+    },
+    "peak_context": 75084,
+    "final_context": 75084,
+    "tool_calls": {
+     "Bash": 15,
+     "Write": 1
+    },
+    "tool_calls_total": 16,
+    "tool_errors": 0,
+    "wall_seconds": 106.9,
+    "doc_chars_total": {
+     "DESIGN.md": 22905,
+     "README.md": 6648,
+     "src": 5276,
+     "other node_modules/hopgraph": 1212
+    },
+    "doc_reads_total": {
+     "DESIGN.md": 3,
+     "src": 3,
+     "other node_modules/hopgraph": 1,
+     "README.md": 1
+    },
+    "outside_sandbox": [
+     {
+      "tool_use_id": "toolu_014Cbf1RV4G7WNYiLw4dGY38",
+      "tool": "Bash",
+      "path": "<scratch>/graph.fixed.ts",
+      "category": "tmp"
+     }
+    ],
+    "violations": []
+   },
+   "doc_reads": [
+    {
+     "tool_use_id": "toolu_012zBdfAYThbhdgtBJSfgwoS",
+     "tool": "Bash",
+     "target": "other node_modules/hopgraph",
+     "path": "*",
+     "chars": 1212,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01NAbe7gAtg3qUEx9SM9RjLa",
+     "tool": "Bash",
+     "target": "README.md",
+     "path": "README.md",
+     "chars": 6648,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_017ZjnjzDsrjAqBo3FXK5e7G",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 717,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01TZcKLNcLuXS3UNs5gU7EdZ",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 8715,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01J3vrVfSRwkATWR9JMUit47",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 13473,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01YANkCvQqqPx4kuzN3cwKpw",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src/run/cache.ts",
+     "chars": 3741,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01Mcc16QvDWGkgtQB9W4Q5SM",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src/run/types.ts",
+     "chars": 89,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01QKXH7ubjTeRMpbgSxpTre1",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src/run/types.ts",
+     "chars": 1446,
+     "shared": false
+    }
+   ]
+  },
+  {
+   "run": "<runs>/t2-debug-outcomes-B-1",
+   "task": "t2-debug-outcomes",
+   "cond": "B",
+   "rep": "1",
+   "grade": {
+    "task": "t2-debug-outcomes",
+    "cond": "B",
+    "rep": "1",
+    "tsc": {
+     "ok": true,
+     "errors": 0,
+     "errors_in_hidden": 0,
+     "first_errors": []
+    },
+    "tests": [
+     {
+      "name": "a current track's artist is found",
+      "ok": true
+     },
+     {
+      "name": "an artist removed from the catalog is absent, not unknown",
+      "ok": true
+     },
+     {
+      "name": "an artist removed from the catalog shows 'no profile'",
+      "ok": true
+     },
+     {
+      "name": "database down: artistProfile is unknown with reason failed, not absent",
+      "ok": true
+     },
+     {
+      "name": "database down: the page shows 'profile unavailable', never 'no profile'",
+      "ok": true
+     },
+     {
+      "name": "database back up: the next page shows the profiles again",
+      "ok": true
+     },
+     {
+      "name": "a 2019-imported track with a numeric artist id finds its artist",
+      "ok": true
+     },
+     {
+      "name": "a 2019-imported track shows 'profile' with its artist's name",
+      "ok": true
+     },
+     {
+      "name": "a 2019-imported track whose artist was removed shows 'no profile'",
+      "ok": true
+     },
+     {
+      "name": "a page of mixed tracks gives each its own text",
+      "ok": true
+     },
+     {
+      "name": "a page reads the artists table in one query",
+      "ok": true
+     },
+     {
+      "name": "profileLabel still maps found, absent and unknown to the three texts",
+      "ok": true
+     }
+    ],
+    "passed": 12,
+    "total": 12,
+    "fully_passed": true,
+    "visible": {
+     "passed": 10,
+     "total": 10
+    },
+    "changed": [
+     "src/graph.ts",
+     "test/outcomes.test.ts"
+    ],
+    "config_changed": false,
+    "fakes_changed": [],
+    "seconds": {
+     "tsc": 1,
+     "vitest": 0
+    }
+   },
+   "metrics": {
+    "transcript": "<transcripts>/agent-aeval-t2-B-1208de0c638c00e8.jsonl",
+    "model": "claude-sonnet-5-5",
+    "turns": 14,
+    "tokens": {
+     "input": 28,
+     "cache_creation": 71449,
+     "cache_read": 725496,
+     "output": 10434,
+     "total": 807407
+    },
+    "peak_context": 71451,
+    "final_context": 71451,
+    "tool_calls": {
+     "Bash": 12,
+     "Write": 1
+    },
+    "tool_calls_total": 13,
+    "tool_errors": 0,
+    "wall_seconds": 102.5,
+    "doc_chars_total": {
+     "docs/guide.md": 14310,
+     "DESIGN.md": 7513,
+     "README.md": 3366,
+     "src": 3192,
+     "dist d.ts": 2396,
+     "other node_modules/hopgraph": 704
+    },
+    "doc_reads_total": {
+     "dist d.ts": 3,
+     "DESIGN.md": 3,
+     "docs/guide.md": 2,
+     "other node_modules/hopgraph": 1,
+     "README.md": 1,
+     "src": 1
+    },
+    "outside_sandbox": [],
+    "violations": []
+   },
+   "doc_reads": [
+    {
+     "tool_use_id": "toolu_01PXaURZf5GLyz7qcyRMR6Dp",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist",
+     "chars": 704,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01PXaURZf5GLyz7qcyRMR6Dp",
+     "tool": "Bash",
+     "target": "other node_modules/hopgraph",
+     "path": "package.json",
+     "chars": 704,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_011ByGw8k88jzHDiWzp28LVy",
+     "tool": "Bash",
+     "target": "README.md",
+     "path": "README.md",
+     "chars": 3366,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_011ByGw8k88jzHDiWzp28LVy",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 3366,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_017grqbvziEEop1mM3sGJaa4",
+     "tool": "Bash",
+     "target": "docs/guide.md",
+     "path": "docs/guide.md",
+     "chars": 4770,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01YTdAHH8tLoow8Qt8uebdJe",
+     "tool": "Bash",
+     "target": "docs/guide.md",
+     "path": "docs/guide.md",
+     "chars": 9540,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01F47A5vgDkdmV9qhYrVZ3Ns",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 954,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01F47A5vgDkdmV9qhYrVZ3Ns",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/index.d.ts",
+     "chars": 954,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_014jGexeKsMiaDnLmKzhhBxr",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 3192,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_014jGexeKsMiaDnLmKzhhBxr",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src/run",
+     "chars": 3192,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01Xr1E2YUxtNddtvnk6bJbGw",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/run/types.d.ts",
+     "chars": 739,
+     "shared": false
+    }
+   ]
+  },
+  {
+   "run": "<runs>/t3-cost-gate-A-1",
+   "task": "t3-cost-gate",
+   "cond": "A",
+   "rep": "1",
+   "grade": {
+    "task": "t3-cost-gate",
+    "cond": "A",
+    "rep": "1",
+    "tsc": {
+     "ok": true,
+     "errors": 0,
+     "errors_in_hidden": 0,
+     "first_errors": []
+    },
+    "tests": [
+     {
+      "name": "under 1 GB (5 tracks): done at once, values found, billed 550 MB",
+      "ok": true
+     },
+     {
+      "name": "every warehouse query is given a byte limit no higher than its price",
+      "ok": true
+     },
+     {
+      "name": "over 1 GB (20 tracks, 2 GB of streams): needs approval with one 2 GB gate",
+      "ok": true
+     },
+     {
+      "name": "while awaiting approval, streams are unknown (awaiting_approval) and not billed",
+      "ok": true
+     },
+     {
+      "name": "resume with the gate approved: done, streams found, never-streamed tracks absent",
+      "ok": true
+     },
+     {
+      "name": "resume does not bill again what the first round read: 2.2 GB in total",
+      "ok": true
+     },
+     {
+      "name": "resume does not price the warehouse again: two dry runs in total",
+      "ok": true
+     },
+     {
+      "name": "each table is read in one query for 20 tracks",
+      "ok": true
+     },
+     {
+      "name": "approvals passed to streamsFor up front run the gated read",
+      "ok": true
+     },
+     {
+      "name": "over 50 GB (600 tracks): streams refused as too_heavy, never billed or offered for approval",
+      "ok": true
+     }
+    ],
+    "passed": 10,
+    "total": 10,
+    "fully_passed": true,
+    "visible": {
+     "passed": 12,
+     "total": 12
+    },
+    "changed": [
+     "src/graph.ts",
+     "src/runner.ts",
+     "src/streams.ts",
+     "test/streams.test.ts"
+    ],
+    "config_changed": false,
+    "fakes_changed": [],
+    "seconds": {
+     "tsc": 1,
+     "vitest": 0
+    }
+   },
+   "metrics": {
+    "transcript": "<transcripts>/agent-aeval-t3-A-fc92bb34513f214a.jsonl",
+    "model": "claude-sonnet-5-5",
+    "turns": 32,
+    "tokens": {
+     "input": 64,
+     "cache_creation": 155449,
+     "cache_read": 3227688,
+     "output": 52646,
+     "total": 3435847
+    },
+    "peak_context": 155451,
+    "final_context": 155451,
+    "tool_calls": {
+     "Bash": 31,
+     "Write": 3,
+     "Read": 1
+    },
+    "tool_calls_total": 35,
+    "tool_errors": 2,
+    "wall_seconds": 447.2,
+    "doc_chars_total": {
+     "dist d.ts": 45712,
+     "DESIGN.md": 36436,
+     "src": 21551,
+     "other node_modules/hopgraph": 4573,
+     "README.md": 3730
+    },
+    "doc_reads_total": {
+     "dist d.ts": 8,
+     "src": 5,
+     "DESIGN.md": 4,
+     "other node_modules/hopgraph": 1,
+     "README.md": 1
+    },
+    "outside_sandbox": [
+     {
+      "tool_use_id": "toolu_01KAapngAXvPzBg5BoZ6YZqJ",
+      "tool": "Bash",
+      "path": "<scratch>",
+      "category": "tmp"
+     },
+     {
+      "tool_use_id": "toolu_01NpmfLNBdndXtXKcU5xBbuk",
+      "tool": "Bash",
+      "path": "<scratch>/src-backup-A1",
+      "category": "tmp"
+     },
+     {
+      "tool_use_id": "toolu_01NpmfLNBdndXtXKcU5xBbuk",
+      "tool": "Bash",
+      "path": "/o.found",
+      "category": "other"
+     },
+     {
+      "tool_use_id": "toolu_01NpmfLNBdndXtXKcU5xBbuk",
+      "tool": "Bash",
+      "path": "<scratch>/hg-runs",
+      "category": "other-run"
+     },
+     {
+      "tool_use_id": "toolu_01VvamUwmrDZQ3BgWQNwrhqY",
+      "tool": "Bash",
+      "path": "/cache:",
+      "category": "other"
+     },
+     {
+      "tool_use_id": "toolu_01VvamUwmrDZQ3BgWQNwrhqY",
+      "tool": "Bash",
+      "path": "/o.found",
+      "category": "other"
+     },
+     {
+      "tool_use_id": "toolu_01VvamUwmrDZQ3BgWQNwrhqY",
+      "tool": "Bash",
+      "path": "/inflight:",
+      "category": "other"
+     },
+     {
+      "tool_use_id": "toolu_01VvamUwmrDZQ3BgWQNwrhqY",
+      "tool": "Bash",
+      "path": "<scratch>/hg-runs",
+      "category": "other-run"
+     },
+     {
+      "tool_use_id": "toolu_01LWFdUA456ZdBmTKMixzp9M",
+      "tool": "Bash",
+      "path": "/o.found",
+      "category": "other"
+     },
+     {
+      "tool_use_id": "toolu_01LWFdUA456ZdBmTKMixzp9M",
+      "tool": "Bash",
+      "path": "<scratch>/hg-runs",
+      "category": "other-run"
+     },
+     {
+      "tool_use_id": "toolu_01252vKWiFvLAUW3DLhysnm8",
+      "tool": "Bash",
+      "path": "/cache:",
+      "category": "other"
+     },
+     {
+      "tool_use_id": "toolu_01252vKWiFvLAUW3DLhysnm8",
+      "tool": "Bash",
+      "path": "/o.found",
+      "category": "other"
+     },
+     {
+      "tool_use_id": "toolu_01252vKWiFvLAUW3DLhysnm8",
+      "tool": "Bash",
+      "path": "/inflight:",
+      "category": "other"
+     },
+     {
+      "tool_use_id": "toolu_01252vKWiFvLAUW3DLhysnm8",
+      "tool": "Bash",
+      "path": "<scratch>/hg-runs",
+      "category": "other-run"
+     }
+    ],
+    "violations": [
+     {
+      "tool_use_id": "toolu_01NpmfLNBdndXtXKcU5xBbuk",
+      "tool": "Bash",
+      "path": "<scratch>/hg-runs",
+      "category": "other-run"
+     },
+     {
+      "tool_use_id": "toolu_01VvamUwmrDZQ3BgWQNwrhqY",
+      "tool": "Bash",
+      "path": "<scratch>/hg-runs",
+      "category": "other-run"
+     },
+     {
+      "tool_use_id": "toolu_01LWFdUA456ZdBmTKMixzp9M",
+      "tool": "Bash",
+      "path": "<scratch>/hg-runs",
+      "category": "other-run"
+     },
+     {
+      "tool_use_id": "toolu_01252vKWiFvLAUW3DLhysnm8",
+      "tool": "Bash",
+      "path": "<scratch>/hg-runs",
+      "category": "other-run"
+     }
+    ]
+   },
+   "doc_reads": [
+    {
+     "tool_use_id": "toolu_017B54uBGpWuAyMgwbM7XzXK",
+     "tool": "Bash",
+     "target": "other node_modules/hopgraph",
+     "path": "package.json",
+     "chars": 4573,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01EvwJ5wLnVB8jZqbFy6vurt",
+     "tool": "Bash",
+     "target": "README.md",
+     "path": "README.md",
+     "chars": 3730,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01EvwJ5wLnVB8jZqbFy6vurt",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 3730,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01DWtqq9uA83PK27RjmpKngs",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 9502,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01T6bms9hUjRdBcD9WmH6p2t",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 20114,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_018b6JnCvB8h5V5GWSeX8D6d",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 3089,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_018b6JnCvB8h5V5GWSeX8D6d",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src",
+     "chars": 3089,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_012HHQkHXgaLyFCidHf2a76w",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/run/types.d.ts",
+     "chars": 2194,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_0195Q5NFxEE2gcYEujUcUZDf",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/run/types.d.ts",
+     "chars": 13008,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01DL3CCi8s9u6o18Q3iPCoQ9",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/run/types.d.ts",
+     "chars": 7307,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01B7FUm6jrBhz3mVp1TnP87R",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/run/runner.d.ts",
+     "chars": 2458,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01JJgDq9khkdVySGypQ7sgWS",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/core/graph.d.ts",
+     "chars": 9614,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01FJEBDwD6YzVY8pg1eSMDZJ",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src/run/gates.ts",
+     "chars": 4792,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_0124GTZjJdKvBXuFXxhHzrZS",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/index.d.ts",
+     "chars": 6824,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01GounT8BZCzsgtN8fbEFq89",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src/run",
+     "chars": 1906,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_013fk9JgHqgYRZFyrtemn7aq",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src/run/job.ts",
+     "chars": 11087,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01GsshNy4YQWDKjejQ9FVMrA",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/run/index.d.ts",
+     "chars": 2882,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01KAapngAXvPzBg5BoZ6YZqJ",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/core/index.d.ts",
+     "chars": 1425,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01Jx2fUePND3a2kuQmWovjn1",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src/run/cache.ts",
+     "chars": 677,
+     "shared": false
+    }
+   ]
+  },
+  {
+   "run": "<runs>/t3-cost-gate-B-1",
+   "task": "t3-cost-gate",
+   "cond": "B",
+   "rep": "1",
+   "grade": {
+    "task": "t3-cost-gate",
+    "cond": "B",
+    "rep": "1",
+    "tsc": {
+     "ok": true,
+     "errors": 0,
+     "errors_in_hidden": 0,
+     "first_errors": []
+    },
+    "tests": [
+     {
+      "name": "under 1 GB (5 tracks): done at once, values found, billed 550 MB",
+      "ok": true
+     },
+     {
+      "name": "every warehouse query is given a byte limit no higher than its price",
+      "ok": true
+     },
+     {
+      "name": "over 1 GB (20 tracks, 2 GB of streams): needs approval with one 2 GB gate",
+      "ok": true
+     },
+     {
+      "name": "while awaiting approval, streams are unknown (awaiting_approval) and not billed",
+      "ok": true
+     },
+     {
+      "name": "resume with the gate approved: done, streams found, never-streamed tracks absent",
+      "ok": true
+     },
+     {
+      "name": "resume does not bill again what the first round read: 2.2 GB in total",
+      "ok": true
+     },
+     {
+      "name": "resume does not price the warehouse again: two dry runs in total",
+      "ok": true
+     },
+     {
+      "name": "each table is read in one query for 20 tracks",
+      "ok": true
+     },
+     {
+      "name": "approvals passed to streamsFor up front run the gated read",
+      "ok": true
+     },
+     {
+      "name": "over 50 GB (600 tracks): streams refused as too_heavy, never billed or offered for approval",
+      "ok": true
+     }
+    ],
+    "passed": 10,
+    "total": 10,
+    "fully_passed": true,
+    "visible": {
+     "passed": 16,
+     "total": 16
+    },
+    "changed": [
+     "src/graph.ts",
+     "src/runner.ts",
+     "src/streams.ts",
+     "test/streams.test.ts"
+    ],
+    "config_changed": false,
+    "fakes_changed": [],
+    "seconds": {
+     "tsc": 0,
+     "vitest": 1
+    }
+   },
+   "metrics": {
+    "transcript": "<transcripts>/agent-aeval-t3-B-7b9ea8e93ee205eb.jsonl",
+    "model": "claude-sonnet-5-5",
+    "turns": 22,
+    "tokens": {
+     "input": 44,
+     "cache_creation": 114508,
+     "cache_read": 1670177,
+     "output": 28620,
+     "total": 1813349
+    },
+    "peak_context": 114510,
+    "final_context": 114510,
+    "tool_calls": {
+     "Bash": 22,
+     "Write": 1,
+     "SendMessage": 1
+    },
+    "tool_calls_total": 24,
+    "tool_errors": 1,
+    "wall_seconds": 250.6,
+    "doc_chars_total": {
+     "src": 38089,
+     "docs/guide.md": 33655,
+     "DESIGN.md": 23440,
+     "dist d.ts": 3870,
+     "README.md": 3234,
+     "other node_modules/hopgraph": 1449
+    },
+    "doc_reads_total": {
+     "src": 8,
+     "docs/guide.md": 4,
+     "DESIGN.md": 3,
+     "README.md": 2,
+     "dist d.ts": 2,
+     "other node_modules/hopgraph": 1
+    },
+    "outside_sandbox": [
+     {
+      "tool_use_id": "toolu_01Vvzq5nbwXGeRuFetBonDrj",
+      "tool": "Bash",
+      "path": "<scratch>/hg-runs",
+      "category": "other-run"
+     },
+     {
+      "tool_use_id": "toolu_01Vvzq5nbwXGeRuFetBonDrj",
+      "tool": "Bash",
+      "path": "<runs>/docs",
+      "category": "other-run"
+     },
+     {
+      "tool_use_id": "toolu_01Vvzq5nbwXGeRuFetBonDrj",
+      "tool": "Bash",
+      "path": "<runs>/examples",
+      "category": "other-run"
+     },
+     {
+      "tool_use_id": "toolu_01E3hXbKSZ2kF8vWXRKUpyrc",
+      "tool": "Bash",
+      "path": "<scratch>/hg-runs",
+      "category": "other-run"
+     },
+     {
+      "tool_use_id": "toolu_011QMUwut4S1TjSQNF1b8Zo4",
+      "tool": "Bash",
+      "path": "/tmp/_r.bak",
+      "category": "tmp"
+     },
+     {
+      "tool_use_id": "toolu_01KqsdDU3ss6YXb8ieqA8qcm",
+      "tool": "Bash",
+      "path": "<scratch>/streams.ts.good",
+      "category": "tmp"
+     },
+     {
+      "tool_use_id": "toolu_01Gf2Tfqiwys1jcibnTyhRz5",
+      "tool": "Bash",
+      "path": "<scratch>/streams.ts.good",
+      "category": "tmp"
+     },
+     {
+      "tool_use_id": "toolu_01Gf2Tfqiwys1jcibnTyhRz5",
+      "tool": "Bash",
+      "path": "/tmp/_r.bak",
+      "category": "tmp"
+     }
+    ],
+    "violations": [
+     {
+      "tool_use_id": "toolu_01Vvzq5nbwXGeRuFetBonDrj",
+      "tool": "Bash",
+      "path": "<scratch>/hg-runs",
+      "category": "other-run"
+     },
+     {
+      "tool_use_id": "toolu_01Vvzq5nbwXGeRuFetBonDrj",
+      "tool": "Bash",
+      "path": "<runs>/docs",
+      "category": "other-run"
+     },
+     {
+      "tool_use_id": "toolu_01Vvzq5nbwXGeRuFetBonDrj",
+      "tool": "Bash",
+      "path": "<runs>/examples",
+      "category": "other-run"
+     },
+     {
+      "tool_use_id": "toolu_01E3hXbKSZ2kF8vWXRKUpyrc",
+      "tool": "Bash",
+      "path": "<scratch>/hg-runs",
+      "category": "other-run"
+     }
+    ]
+   },
+   "doc_reads": [
+    {
+     "tool_use_id": "toolu_01M4WFrzxpQp7TomYTSeCZAm",
+     "tool": "Bash",
+     "target": "other node_modules/hopgraph",
+     "path": "package.json",
+     "chars": 1449,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01M4WFrzxpQp7TomYTSeCZAm",
+     "tool": "Bash",
+     "target": "README.md",
+     "path": "README.md",
+     "chars": 1449,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01FpQJTtfsXfmofcbkhh87AG",
+     "tool": "Bash",
+     "target": "README.md",
+     "path": "README.md",
+     "chars": 1785,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01FpQJTtfsXfmofcbkhh87AG",
+     "tool": "Bash",
+     "target": "docs/guide.md",
+     "path": "docs/guide.md",
+     "chars": 1785,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01FpQJTtfsXfmofcbkhh87AG",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 1785,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01FpQJTtfsXfmofcbkhh87AG",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src",
+     "chars": 1785,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01NazLmPFV1mbdAVsYe3t88N",
+     "tool": "Bash",
+     "target": "docs/guide.md",
+     "path": "docs/guide.md",
+     "chars": 2143,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01YQ54F2JcUxUAXzLr8N1LqL",
+     "tool": "Bash",
+     "target": "docs/guide.md",
+     "path": "docs/guide.md",
+     "chars": 840,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_016q5kCHbRya9jMBQ8pbbf9f",
+     "tool": "Bash",
+     "target": "docs/guide.md",
+     "path": "docs/guide.md",
+     "chars": 28887,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01KoWJ8vjp7oT76ZEnyJrRr1",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 9607,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01L8SfjjDZAAjxtqxD7quxWs",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 12048,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_015JZCqydXXhr3SfH2YH1KPB",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src",
+     "chars": 5539,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_016WoZpxDNecu68swZWF4SUs",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src",
+     "chars": 3968,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_016cduMybwJhbuXgT2oy9ntE",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src",
+     "chars": 8712,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01Vvzq5nbwXGeRuFetBonDrj",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src",
+     "chars": 10894,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01E3hXbKSZ2kF8vWXRKUpyrc",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/index.d.ts",
+     "chars": 1220,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01E3hXbKSZ2kF8vWXRKUpyrc",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src/core/graph.ts",
+     "chars": 1220,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01AY5LwgkdWDviYcfAvAUhi8",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/index.d.ts",
+     "chars": 2651,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01AY5LwgkdWDviYcfAvAUhi8",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src/core/graph.ts",
+     "chars": 2651,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01DjLyvh1kM1Tv1dCuxEBqyF",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src/core",
+     "chars": 3321,
+     "shared": false
+    }
+   ]
+  },
+  {
+   "run": "<runs>/t4-deadline-viewer-A-1",
+   "task": "t4-deadline-viewer",
+   "cond": "A",
+   "rep": "1",
+   "grade": {
+    "task": "t4-deadline-viewer",
+    "cond": "A",
+    "rep": "1",
+    "tsc": {
+     "ok": true,
+     "errors": 0,
+     "errors_in_hidden": 0,
+     "first_errors": []
+    },
+    "tests": [
+     {
+      "name": "analytics fast: each track shows its title and stream count",
+      "ok": true
+     },
+     {
+      "name": "a track analytics has no data for shows 'none'",
+      "ok": true
+     },
+     {
+      "name": "analytics slow (2 s): the page answers within 600 ms",
+      "ok": true
+     },
+     {
+      "name": "analytics slow: titles are shown and streams are 'late'",
+      "ok": true
+     },
+     {
+      "name": "a late answer is not remembered: the next page, analytics fast again, shows numbers",
+      "ok": true
+     },
+     {
+      "name": "a viewer without the analytics permission sees titles and 'forbidden'",
+      "ok": true
+     },
+     {
+      "name": "a viewer without the analytics permission never calls analytics",
+      "ok": true
+     },
+     {
+      "name": "a permitted viewer's cached streams are never served to a viewer without permission",
+      "ok": true
+     },
+     {
+      "name": "a viewer without permission first does not keep a permitted viewer from the numbers",
+      "ok": true
+     }
+    ],
+    "passed": 9,
+    "total": 9,
+    "fully_passed": true,
+    "visible": {
+     "passed": 11,
+     "total": 11
+    },
+    "changed": [
+     "src/graph.ts",
+     "src/page.ts",
+     "test/page.test.ts"
+    ],
+    "config_changed": false,
+    "fakes_changed": [],
+    "seconds": {
+     "tsc": 1,
+     "vitest": 1
+    }
+   },
+   "metrics": {
+    "transcript": "<transcripts>/agent-aeval-t4-A-f5158a3c1b270671.jsonl",
+    "model": "claude-sonnet-5-5",
+    "turns": 20,
+    "tokens": {
+     "input": 40,
+     "cache_creation": 86898,
+     "cache_read": 1276019,
+     "output": 17268,
+     "total": 1380225
+    },
+    "peak_context": 86900,
+    "final_context": 86900,
+    "tool_calls": {
+     "Bash": 20
+    },
+    "tool_calls_total": 20,
+    "tool_errors": 1,
+    "wall_seconds": 185.2,
+    "doc_chars_total": {
+     "dist d.ts": 42839,
+     "DESIGN.md": 19740,
+     "README.md": 3350,
+     "other node_modules/hopgraph": 1644
+    },
+    "doc_reads_total": {
+     "dist d.ts": 8,
+     "DESIGN.md": 3,
+     "other node_modules/hopgraph": 1,
+     "README.md": 1
+    },
+    "outside_sandbox": [
+     {
+      "tool_use_id": "toolu_01Ew3es2E5BiVaGrnLrtab5c",
+      "tool": "Bash",
+      "path": "<scratch>",
+      "category": "tmp"
+     },
+     {
+      "tool_use_id": "toolu_011eiNCQAKAnh2bSyHHHieNe",
+      "tool": "Bash",
+      "path": "/tmp/_x",
+      "category": "tmp"
+     }
+    ],
+    "violations": []
+   },
+   "doc_reads": [
+    {
+     "tool_use_id": "toolu_01TqChHcM8ueXyzhxzKZe4hD",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist",
+     "chars": 1644,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01TqChHcM8ueXyzhxzKZe4hD",
+     "tool": "Bash",
+     "target": "other node_modules/hopgraph",
+     "path": "package.json",
+     "chars": 1644,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01WGMKaSZvZKD647QbHQZRBR",
+     "tool": "Bash",
+     "target": "README.md",
+     "path": "README.md",
+     "chars": 3350,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01WGMKaSZvZKD647QbHQZRBR",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 3350,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01TgEuBx1pHNYnF9oksNfsMC",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/run",
+     "chars": 8628,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_0171Su8TKPvTfHannV9uhKyg",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/run/types.d.ts",
+     "chars": 12650,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01WrnGis2hATPw9sn2T3rfCY",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/run/reads.d.ts",
+     "chars": 2236,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01WrnGis2hATPw9sn2T3rfCY",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 2236,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01SEkdohnBUdsMmfAeQJMQhC",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 14153,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01D6S7ZLWCVBLNEcfDa1Gg6B",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/core",
+     "chars": 6374,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_015NvBjoisgXj5nRcxaTpRSq",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/run/types.d.ts",
+     "chars": 4818,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01113Vg5Gi5f1nye7VFm9Mqj",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/run/types.d.ts",
+     "chars": 4660,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01Ew3es2E5BiVaGrnLrtab5c",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist/run/cache.d.ts",
+     "chars": 1829,
+     "shared": false
+    }
+   ]
+  },
+  {
+   "run": "<runs>/t4-deadline-viewer-B-1",
+   "task": "t4-deadline-viewer",
+   "cond": "B",
+   "rep": "1",
+   "grade": {
+    "task": "t4-deadline-viewer",
+    "cond": "B",
+    "rep": "1",
+    "tsc": {
+     "ok": true,
+     "errors": 0,
+     "errors_in_hidden": 0,
+     "first_errors": []
+    },
+    "tests": [
+     {
+      "name": "analytics fast: each track shows its title and stream count",
+      "ok": true
+     },
+     {
+      "name": "a track analytics has no data for shows 'none'",
+      "ok": true
+     },
+     {
+      "name": "analytics slow (2 s): the page answers within 600 ms",
+      "ok": true
+     },
+     {
+      "name": "analytics slow: titles are shown and streams are 'late'",
+      "ok": true
+     },
+     {
+      "name": "a late answer is not remembered: the next page, analytics fast again, shows numbers",
+      "ok": true
+     },
+     {
+      "name": "a viewer without the analytics permission sees titles and 'forbidden'",
+      "ok": true
+     },
+     {
+      "name": "a viewer without the analytics permission never calls analytics",
+      "ok": true
+     },
+     {
+      "name": "a permitted viewer's cached streams are never served to a viewer without permission",
+      "ok": true
+     },
+     {
+      "name": "a viewer without permission first does not keep a permitted viewer from the numbers",
+      "ok": true
+     }
+    ],
+    "passed": 9,
+    "total": 9,
+    "fully_passed": true,
+    "visible": {
+     "passed": 8,
+     "total": 8
+    },
+    "changed": [
+     "src/graph.ts",
+     "src/page.ts",
+     "test/page.test.ts"
+    ],
+    "config_changed": false,
+    "fakes_changed": [],
+    "seconds": {
+     "tsc": 0,
+     "vitest": 2
+    }
+   },
+   "metrics": {
+    "transcript": "<transcripts>/agent-aeval-t4-B-121561fb40c4f176.jsonl",
+    "model": "claude-sonnet-5-5",
+    "turns": 16,
+    "tokens": {
+     "input": 32,
+     "cache_creation": 77576,
+     "cache_read": 869250,
+     "output": 12810,
+     "total": 959668
+    },
+    "peak_context": 77578,
+    "final_context": 77578,
+    "tool_calls": {
+     "Bash": 15
+    },
+    "tool_calls_total": 15,
+    "tool_errors": 1,
+    "wall_seconds": 120.2,
+    "doc_chars_total": {
+     "docs/guide.md": 29874,
+     "src": 25056,
+     "dist d.ts": 2431,
+     "README.md": 2385,
+     "DESIGN.md": 2385
+    },
+    "doc_reads_total": {
+     "src": 6,
+     "docs/guide.md": 3,
+     "dist d.ts": 1,
+     "README.md": 1,
+     "DESIGN.md": 1
+    },
+    "outside_sandbox": [],
+    "violations": []
+   },
+   "doc_reads": [
+    {
+     "tool_use_id": "toolu_011WVfzD8eroq5wyHiv77NrS",
+     "tool": "Bash",
+     "target": "dist d.ts",
+     "path": "dist",
+     "chars": 2431,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01BK6b9awfsTF5t5jP6icEQC",
+     "tool": "Bash",
+     "target": "README.md",
+     "path": "README.md",
+     "chars": 2385,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01BK6b9awfsTF5t5jP6icEQC",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src",
+     "chars": 2385,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01BK6b9awfsTF5t5jP6icEQC",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 2385,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_016kpsARSDkd76UMEx7QDJsX",
+     "tool": "Bash",
+     "target": "docs/guide.md",
+     "path": "docs/guide.md",
+     "chars": 2143,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_0123szuj2Q8rfHE4eaCMKduu",
+     "tool": "Bash",
+     "target": "docs/guide.md",
+     "path": "docs/guide.md",
+     "chars": 909,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_011mz3Tu57E3xVzbapHBLnes",
+     "tool": "Bash",
+     "target": "docs/guide.md",
+     "path": "docs/guide.md",
+     "chars": 26822,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01CqytFBHxjujDm1Q2Gd6Q5k",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src/run",
+     "chars": 5940,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_011WFJ3apiPuZ1sqyPGYbZmJ",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src/run/stop.ts",
+     "chars": 8685,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01RW662y67NzEHHqwob3hAKt",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src/run/types.ts",
+     "chars": 821,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01J11E5p8MdQ4nMNhJsnikzM",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src/run/types.ts",
+     "chars": 2826,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01RLaNNan6EV27bYyYEaVjkg",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src/run/cache.ts",
+     "chars": 4399,
+     "shared": false
+    }
+   ]
+  },
+  {
+   "run": "<runs>/t1-add-source-C-1",
+   "task": "t1-add-source",
+   "cond": "C",
+   "rep": "1",
+   "grade": {
+    "task": "t1-add-source",
+    "cond": "C",
+    "rep": "1",
+    "tsc": {
+     "ok": true,
+     "errors": 0,
+     "errors_in_hidden": 0,
+     "first_errors": []
+    },
+    "tests": [
+     {
+      "name": "finds a track's label through its artist, with name and country",
+      "ok": true
+     },
+     {
+      "name": "an unsigned artist's track has labelInfo absent",
+      "ok": true
+     },
+     {
+      "name": "a label id the labels service does not know is absent",
+      "ok": true
+     },
+     {
+      "name": "labels service down: labelInfo is unknown with reason failed, not absent",
+      "ok": true
+     },
+     {
+      "name": "labels service down: artistProfile is still found",
+      "ok": true
+     },
+     {
+      "name": "a failure is not remembered: once the service is back the label is found",
+      "ok": true
+     },
+     {
+      "name": "30 tracks call the labels service once",
+      "ok": true
+     },
+     {
+      "name": "a second read of the same tracks is served without calling the labels service",
+      "ok": true
+     },
+     {
+      "name": "checkGraph from track reports no problem",
+      "ok": true
+     },
+     {
+      "name": "artistProfile and trackInfo are unchanged",
+      "ok": true
+     }
+    ],
+    "passed": 10,
+    "total": 10,
+    "fully_passed": true,
+    "visible": {
+     "passed": 10,
+     "total": 10
+    },
+    "changed": [
+     "src/graph.ts",
+     "src/runner.ts",
+     "test/label.test.ts"
+    ],
+    "config_changed": false,
+    "fakes_changed": [],
+    "seconds": {
+     "tsc": 1,
+     "vitest": 0
+    }
+   },
+   "metrics": {
+    "transcript": "<transcripts>/agent-aeval-t1-C-2f83616a2cb9e881.jsonl",
+    "model": "claude-sonnet-5-5",
+    "turns": 8,
+    "tokens": {
+     "input": 16,
+     "cache_creation": 39302,
+     "cache_read": 393537,
+     "output": 8296,
+     "total": 441151
+    },
+    "peak_context": 63059,
+    "final_context": 63059,
+    "tool_calls": {
+     "Bash": 7,
+     "Read": 1
+    },
+    "tool_calls_total": 8,
+    "tool_errors": 0,
+    "wall_seconds": 65.4,
+    "doc_chars_total": {
+     "skills": 21157
+    },
+    "doc_reads_total": {
+     "skills": 3
+    },
+    "outside_sandbox": [],
+    "violations": []
+   },
+   "doc_reads": [
+    {
+     "tool_use_id": "toolu_01HQzwT6pPYV3292Z55cc8JH",
+     "tool": "Read",
+     "target": "skills",
+     "path": "skills/hopgraph/SKILL.md",
+     "chars": 11204,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01BETcgKeZibHSvkieMyB7rR",
+     "tool": "Bash",
+     "target": "skills",
+     "path": "skills/hopgraph",
+     "chars": 1438,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_017oysMzUhZxjtfpNNJfM1KM",
+     "tool": "Bash",
+     "target": "skills",
+     "path": "skills/hopgraph/references/reference.md",
+     "chars": 8515,
+     "shared": false
+    }
+   ]
+  },
+  {
+   "run": "<runs>/t2-debug-outcomes-C-1",
+   "task": "t2-debug-outcomes",
+   "cond": "C",
+   "rep": "1",
+   "grade": {
+    "task": "t2-debug-outcomes",
+    "cond": "C",
+    "rep": "1",
+    "tsc": {
+     "ok": true,
+     "errors": 0,
+     "errors_in_hidden": 0,
+     "first_errors": []
+    },
+    "tests": [
+     {
+      "name": "a current track's artist is found",
+      "ok": true
+     },
+     {
+      "name": "an artist removed from the catalog is absent, not unknown",
+      "ok": true
+     },
+     {
+      "name": "an artist removed from the catalog shows 'no profile'",
+      "ok": true
+     },
+     {
+      "name": "database down: artistProfile is unknown with reason failed, not absent",
+      "ok": true
+     },
+     {
+      "name": "database down: the page shows 'profile unavailable', never 'no profile'",
+      "ok": true
+     },
+     {
+      "name": "database back up: the next page shows the profiles again",
+      "ok": true
+     },
+     {
+      "name": "a 2019-imported track with a numeric artist id finds its artist",
+      "ok": true
+     },
+     {
+      "name": "a 2019-imported track shows 'profile' with its artist's name",
+      "ok": true
+     },
+     {
+      "name": "a 2019-imported track whose artist was removed shows 'no profile'",
+      "ok": true
+     },
+     {
+      "name": "a page of mixed tracks gives each its own text",
+      "ok": true
+     },
+     {
+      "name": "a page reads the artists table in one query",
+      "ok": true
+     },
+     {
+      "name": "profileLabel still maps found, absent and unknown to the three texts",
+      "ok": true
+     }
+    ],
+    "passed": 12,
+    "total": 12,
+    "fully_passed": true,
+    "visible": {
+     "passed": 13,
+     "total": 13
+    },
+    "changed": [
+     "src/graph.ts",
+     "test/outcomes.test.ts"
+    ],
+    "config_changed": false,
+    "fakes_changed": [],
+    "seconds": {
+     "tsc": 1,
+     "vitest": 0
+    }
+   },
+   "metrics": {
+    "transcript": "<transcripts>/agent-aeval-t2-C-b1556766cd34d83a.jsonl",
+    "model": "claude-sonnet-5-5",
+    "turns": 10,
+    "tokens": {
+     "input": 20,
+     "cache_creation": 39037,
+     "cache_read": 511290,
+     "output": 8949,
+     "total": 559296
+    },
+    "peak_context": 62794,
+    "final_context": 62794,
+    "tool_calls": {
+     "Bash": 8,
+     "Read": 1,
+     "Write": 1
+    },
+    "tool_calls_total": 10,
+    "tool_errors": 0,
+    "wall_seconds": 78.2,
+    "doc_chars_total": {
+     "skills": 11204
+    },
+    "doc_reads_total": {
+     "skills": 1
+    },
+    "outside_sandbox": [
+     {
+      "tool_use_id": "toolu_01RLRosVeEJCNPT7sSpeT1U3",
+      "tool": "Bash",
+      "path": "<scratch>/t2c-tmp",
+      "category": "tmp"
+     },
+     {
+      "tool_use_id": "toolu_0177hFMm3r3PPVNosvW26NHS",
+      "tool": "Bash",
+      "path": "/process.stderr.write",
+      "category": "other"
+     },
+     {
+      "tool_use_id": "toolu_016vzT5jmvpqocjZVZhxTuo8",
+      "tool": "Bash",
+      "path": "<scratch>/t2c-tmp/graph.fixed.ts",
+      "category": "tmp"
+     }
+    ],
+    "violations": []
+   },
+   "doc_reads": [
+    {
+     "tool_use_id": "toolu_019ahuMzjjHbs1Dx5fUkreJz",
+     "tool": "Read",
+     "target": "skills",
+     "path": "skills/hopgraph/SKILL.md",
+     "chars": 11204,
+     "shared": false
+    }
+   ]
+  },
+  {
+   "run": "<runs>/t3-cost-gate-C-1",
+   "task": "t3-cost-gate",
+   "cond": "C",
+   "rep": "1",
+   "grade": {
+    "task": "t3-cost-gate",
+    "cond": "C",
+    "rep": "1",
+    "tsc": {
+     "ok": true,
+     "errors": 0,
+     "errors_in_hidden": 0,
+     "first_errors": []
+    },
+    "tests": [
+     {
+      "name": "under 1 GB (5 tracks): done at once, values found, billed 550 MB",
+      "ok": true
+     },
+     {
+      "name": "every warehouse query is given a byte limit no higher than its price",
+      "ok": true
+     },
+     {
+      "name": "over 1 GB (20 tracks, 2 GB of streams): needs approval with one 2 GB gate",
+      "ok": true
+     },
+     {
+      "name": "while awaiting approval, streams are unknown (awaiting_approval) and not billed",
+      "ok": true
+     },
+     {
+      "name": "resume with the gate approved: done, streams found, never-streamed tracks absent",
+      "ok": true
+     },
+     {
+      "name": "resume does not bill again what the first round read: 2.2 GB in total",
+      "ok": true
+     },
+     {
+      "name": "resume does not price the warehouse again: two dry runs in total",
+      "ok": true
+     },
+     {
+      "name": "each table is read in one query for 20 tracks",
+      "ok": true
+     },
+     {
+      "name": "approvals passed to streamsFor up front run the gated read",
+      "ok": true
+     },
+     {
+      "name": "over 50 GB (600 tracks): streams refused as too_heavy, never billed or offered for approval",
+      "ok": true
+     }
+    ],
+    "passed": 10,
+    "total": 10,
+    "fully_passed": true,
+    "visible": {
+     "passed": 12,
+     "total": 12
+    },
+    "changed": [
+     "src/graph.ts",
+     "src/runner.ts",
+     "src/streams.ts",
+     "test/streams.test.ts"
+    ],
+    "config_changed": false,
+    "fakes_changed": [],
+    "seconds": {
+     "tsc": 0,
+     "vitest": 2
+    }
+   },
+   "metrics": {
+    "transcript": "<transcripts>/agent-aeval-t3-C-ebebd85b10c533fd.jsonl",
+    "model": "claude-sonnet-5-5",
+    "turns": 14,
+    "tokens": {
+     "input": 28,
+     "cache_creation": 69592,
+     "cache_read": 954198,
+     "output": 27597,
+     "total": 1051415
+    },
+    "peak_context": 93349,
+    "final_context": 93349,
+    "tool_calls": {
+     "Bash": 12,
+     "Write": 2,
+     "Read": 1,
+     "Edit": 1
+    },
+    "tool_calls_total": 16,
+    "tool_errors": 0,
+    "wall_seconds": 219.1,
+    "doc_chars_total": {
+     "src": 22630,
+     "skills": 19944,
+     "other node_modules/hopgraph": 909
+    },
+    "doc_reads_total": {
+     "skills": 3,
+     "src": 3,
+     "other node_modules/hopgraph": 1
+    },
+    "outside_sandbox": [
+     {
+      "tool_use_id": "toolu_01MpKY2QafbFLCCEcvnhouFL",
+      "tool": "Bash",
+      "path": "/tmp/_r.bak",
+      "category": "tmp"
+     }
+    ],
+    "violations": []
+   },
+   "doc_reads": [
+    {
+     "tool_use_id": "toolu_01N9ZYPDRFWxAeMWkoVo6ssb",
+     "tool": "Read",
+     "target": "skills",
+     "path": "skills/hopgraph/SKILL.md",
+     "chars": 11204,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_017qHp2Btoq8sc79B3ytJrvY",
+     "tool": "Bash",
+     "target": "skills",
+     "path": "skills/hopgraph",
+     "chars": 203,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01VH52pKYUbCguvs18NP8Xk9",
+     "tool": "Bash",
+     "target": "skills",
+     "path": "skills/hopgraph/references",
+     "chars": 8537,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01Pnck6i9WkiwB65XesqcPw2",
+     "tool": "Bash",
+     "target": "other node_modules/hopgraph",
+     "path": "package.json",
+     "chars": 909,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01Pnck6i9WkiwB65XesqcPw2",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src",
+     "chars": 909,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01YDr5fHtD36cwe3MRHztA6L",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src/run",
+     "chars": 17034,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01932abkMN4PmAmvEzso5BVp",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src",
+     "chars": 4687,
+     "shared": false
+    }
+   ]
+  },
+  {
+   "run": "<runs>/t4-deadline-viewer-C-1",
+   "task": "t4-deadline-viewer",
+   "cond": "C",
+   "rep": "1",
+   "grade": {
+    "task": "t4-deadline-viewer",
+    "cond": "C",
+    "rep": "1",
+    "tsc": {
+     "ok": true,
+     "errors": 0,
+     "errors_in_hidden": 0,
+     "first_errors": []
+    },
+    "tests": [
+     {
+      "name": "analytics fast: each track shows its title and stream count",
+      "ok": true
+     },
+     {
+      "name": "a track analytics has no data for shows 'none'",
+      "ok": true
+     },
+     {
+      "name": "analytics slow (2 s): the page answers within 600 ms",
+      "ok": true
+     },
+     {
+      "name": "analytics slow: titles are shown and streams are 'late'",
+      "ok": true
+     },
+     {
+      "name": "a late answer is not remembered: the next page, analytics fast again, shows numbers",
+      "ok": true
+     },
+     {
+      "name": "a viewer without the analytics permission sees titles and 'forbidden'",
+      "ok": true
+     },
+     {
+      "name": "a viewer without the analytics permission never calls analytics",
+      "ok": true
+     },
+     {
+      "name": "a permitted viewer's cached streams are never served to a viewer without permission",
+      "ok": true
+     },
+     {
+      "name": "a viewer without permission first does not keep a permitted viewer from the numbers",
+      "ok": true
+     }
+    ],
+    "passed": 9,
+    "total": 9,
+    "fully_passed": true,
+    "visible": {
+     "passed": 10,
+     "total": 10
+    },
+    "changed": [
+     "src/graph.ts",
+     "src/page.ts",
+     "test/page.test.ts"
+    ],
+    "config_changed": false,
+    "fakes_changed": [],
+    "seconds": {
+     "tsc": 0,
+     "vitest": 1
+    }
+   },
+   "metrics": {
+    "transcript": "<transcripts>/agent-aeval-t4-C-be1621ff022c9702.jsonl",
+    "model": "claude-sonnet-5-5",
+    "turns": 13,
+    "tokens": {
+     "input": 26,
+     "cache_creation": 46268,
+     "cache_read": 713491,
+     "output": 14107,
+     "total": 773892
+    },
+    "peak_context": 70025,
+    "final_context": 70025,
+    "tool_calls": {
+     "Bash": 12,
+     "Write": 2,
+     "Read": 1,
+     "Edit": 1
+    },
+    "tool_calls_total": 16,
+    "tool_errors": 1,
+    "wall_seconds": 122.0,
+    "doc_chars_total": {
+     "skills": 16228,
+     "DESIGN.md": 5476,
+     "src": 1711,
+     "README.md": 1711
+    },
+    "doc_reads_total": {
+     "skills": 4,
+     "DESIGN.md": 2,
+     "src": 1,
+     "README.md": 1
+    },
+    "outside_sandbox": [],
+    "violations": []
+   },
+   "doc_reads": [
+    {
+     "tool_use_id": "toolu_01PfLjxYtFRwWct4Miqw1SL3",
+     "tool": "Read",
+     "target": "skills",
+     "path": "skills/hopgraph/SKILL.md",
+     "chars": 11204,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_011dbGDnS2dgdLpa83QiqYpV",
+     "tool": "Bash",
+     "target": "skills",
+     "path": "skills/hopgraph",
+     "chars": 203,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01AzJDrkbVHiFUcTcZLynTTp",
+     "tool": "Bash",
+     "target": "skills",
+     "path": "skills/hopgraph/references/reference.md",
+     "chars": 876,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01DhcKWKvr8yHrt5YpPSPTMh",
+     "tool": "Bash",
+     "target": "skills",
+     "path": "skills/hopgraph/references/reference.md",
+     "chars": 3945,
+     "shared": false
+    },
+    {
+     "tool_use_id": "toolu_01Ht4jyCdxpzPAoaP5LHxQkV",
+     "tool": "Bash",
+     "target": "src",
+     "path": "src",
+     "chars": 1711,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01Ht4jyCdxpzPAoaP5LHxQkV",
+     "tool": "Bash",
+     "target": "README.md",
+     "path": "README.md",
+     "chars": 1711,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01Ht4jyCdxpzPAoaP5LHxQkV",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 1711,
+     "shared": true
+    },
+    {
+     "tool_use_id": "toolu_01Mx7zq23eh5U8GtHxSRWirn",
+     "tool": "Bash",
+     "target": "DESIGN.md",
+     "path": "DESIGN.md",
+     "chars": 3765,
+     "shared": false
+    }
+   ]
+  }
+ ]
+}

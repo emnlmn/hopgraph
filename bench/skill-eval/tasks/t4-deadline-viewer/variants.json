@@ -1,0 +1,75 @@
+[
+  {
+    "name": "deadline-duration",
+    "expect": "fail",
+    "why": "deadline given as a duration (300) instead of epoch ms: the run is past it before it starts",
+    "edits": [
+      {
+        "file": "src/page.ts",
+        "old": "deadline: Date.now() + BUDGET_MS,",
+        "new": "deadline: BUDGET_MS,"
+      }
+    ]
+  },
+  {
+    "name": "signal-timeout",
+    "expect": "fail",
+    "why": "AbortSignal.timeout instead of a deadline: the read rejects instead of answering",
+    "edits": [
+      {
+        "file": "src/page.ts",
+        "old": "deadline: Date.now() + BUDGET_MS,",
+        "new": "signal: AbortSignal.timeout(BUDGET_MS),"
+      }
+    ]
+  },
+  {
+    "name": "only-returned-keys",
+    "expect": "fail",
+    "why": "envelope from analytics' answer only: a track with no data is failed ('late'), not 'none'",
+    "edits": [
+      {
+        "file": "src/graph.ts",
+        "old": "    return envelope(\n      refs.map((r) => {\n        const row = rows.get(r.key);\n        return [r.key, row ? found(row) : absent()];\n      }),\n    );\n  },\n});\n\nexport const trackSummary",
+        "new": "    return envelope([...rows].map(([id, row]) => [id, found(row)]));\n  },\n});\n\nexport const trackSummary"
+      }
+    ]
+  },
+  {
+    "name": "hide-after-read",
+    "expect": "fail",
+    "why": "streams read for every viewer, then hidden from those without permission",
+    "edits": [
+      {
+        "file": "src/page.ts",
+        "old": "    readable: (connector) => (connector === \"analytics\" && !mayReadAnalytics ? \"forbidden\" : true),\n",
+        "new": ""
+      },
+      {
+        "file": "src/page.ts",
+        "old": "    if (s?.outcome === \"found\") streams",
+        "new": "    if (!mayReadAnalytics) streams = \"forbidden\";\n    else if (s?.outcome === \"found\") streams"
+      }
+    ]
+  },
+  {
+    "name": "no-restriction",
+    "expect": "pass",
+    "why": "readable alone, no restriction: an unreadable loader never touches the cache",
+    "edits": [
+      {
+        "file": "src/page.ts",
+        "old": "    restriction: mayReadAnalytics ? \"\" : \"no-analytics\",\n",
+        "new": ""
+      }
+    ]
+  },
+  {
+    "name": "skip-provider",
+    "expect": "pass",
+    "why": "another design: a viewer without permission is not asked for trackStreams at all",
+    "files": {
+      "src/page.ts": "import { trackStreams, trackSummary } from \"./graph.ts\";\nimport { runner } from \"./runner.ts\";\n\nexport interface User {\n  readonly id: string;\n  readonly permissions: string[];\n}\nexport type StreamsCell = number | \"late\" | \"forbidden\" | \"none\";\nexport interface PageRow {\n  readonly track: string;\n  readonly title: string;\n  readonly streams: StreamsCell;\n}\n\nexport async function renderPage(trackIds: string[], user: User): Promise<PageRow[]> {\n  const deadline = Date.now() + 300;\n  if (!user.permissions.includes(\"analytics\")) {\n    const r = await runner.read(\"track\", trackIds, [trackSummary], { deadline });\n    return trackIds.map((track) => ({\n      track,\n      title: r.rows.get(track)?.providers.trackSummary.rows[0]?.fields.title ?? \"\",\n      streams: \"forbidden\",\n    }));\n  }\n  const r = await runner.read(\"track\", trackIds, [trackSummary, trackStreams], { deadline });\n  return trackIds.map((track) => {\n    const p = r.rows.get(track)?.providers;\n    const s = p?.trackStreams;\n    const streams: StreamsCell =\n      s?.outcome === \"found\" ? (s.rows[0]?.fields.streams ?? \"none\") : s?.outcome === \"absent\" ? \"none\" : \"late\";\n    return { track, title: p?.trackSummary.rows[0]?.fields.title ?? \"\", streams };\n  });\n}\n"
+    }
+  }
+]

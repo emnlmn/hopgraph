@@ -1,0 +1,62 @@
+[
+  {
+    "name": "no-cache",
+    "expect": "fail",
+    "why": "no cache: the resume reads (and bills) the skips table again",
+    "edits": [
+      {
+        "file": "src/runner.ts",
+        "old": "  cache: memoryCache(),\n",
+        "new": ""
+      }
+    ]
+  },
+  {
+    "name": "no-prices",
+    "expect": "fail",
+    "why": "resume without the previous run's prices: the gate is priced again",
+    "edits": [
+      {
+        "file": "src/streams.ts",
+        "old": "    ...(prices ? { prices } : {}),\n",
+        "new": ""
+      }
+    ]
+  },
+  {
+    "name": "keys-batches",
+    "expect": "fail",
+    "why": "batches of 10 keys kept: several queries (and dry runs) per table",
+    "edits": [
+      {
+        "file": "src/graph.ts",
+        "old": "  batch: { by: \"partition\" },\n  cost: FINANCE_RULE,\n  price: (refs, _ctx, signal) => warehouse.dryRun(\"streams\"",
+        "new": "  batch: { by: \"keys\", max: 10 },\n  cost: FINANCE_RULE,\n  price: (refs, _ctx, signal) => warehouse.dryRun(\"streams\""
+      }
+    ]
+  },
+  {
+    "name": "no-maxbytes",
+    "expect": "fail",
+    "why": "the budget never handed to the warehouse as its byte limit",
+    "edits": [
+      {
+        "file": "src/graph.ts",
+        "old": "      \"streams\",\n      refs.map((r) => r.key),\n      { maxBytes: budget.maxBytes, signal },",
+        "new": "      \"streams\",\n      refs.map((r) => r.key),\n      { signal },"
+      }
+    ]
+  },
+  {
+    "name": "approve-everything",
+    "expect": "fail",
+    "why": "approve cap set to Infinity: a 60 GB read is offered for approval instead of refused",
+    "edits": [
+      {
+        "file": "src/graph.ts",
+        "old": "approve: 50_000_000_000",
+        "new": "approve: Number.POSITIVE_INFINITY"
+      }
+    ]
+  }
+]

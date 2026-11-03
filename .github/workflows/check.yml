@@ -36,6 +36,8 @@ jobs:
       - run: npm ci
       - name: Typecheck
         run: npm run typecheck
+      - name: The skill's code compiles
+        run: npm run skill
       - name: Lint
         run: npm run lint
       - name: Unit tests, with the coverage threshold

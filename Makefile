@@ -8,7 +8,7 @@ MAKEFLAGS += --no-print-directory
 export npm_config_loglevel := silent
 export PIP_DISABLE_PIP_VERSION_CHECK := 1
 export PIP_QUIET := 1
-.PHONY: help install setup tools check test props coverage lint format typecheck badge build api api-update \
+.PHONY: help install setup tools check test props coverage lint format typecheck skill badge build api api-update \
 	smoke bench example crap dry clean
 
 # b, c, d, g, r, z: bold, cyan, dim, green, red, reset, set only on a terminal and never under NO_COLOR
@@ -31,7 +31,7 @@ help: ## List the targets
 install: ## Install the dependencies from the lockfile
 	$(call step,install,npm ci --no-audit --no-fund)
 
-check: typecheck lint badge coverage props build api smoke ## Everything CI runs, step by step
+check: typecheck skill lint badge coverage props build api smoke ## Everything CI runs, step by step
 	$(COLORS); printf '%s✓ check passed%s\n' "$$g$$b" "$$z"
 
 test: ## Unit tests
@@ -51,6 +51,9 @@ format: ## Biome, applying its fixes
 
 typecheck: ## TypeScript, no emit
 	$(call step,typecheck,npm run typecheck)
+
+skill: ## The code in skills/hopgraph/SKILL.md compiles
+	$(call step,skill,npm run skill)
 
 badge: ## The README coverage badge matches the threshold
 	$(call step,badge,npm run badge)
