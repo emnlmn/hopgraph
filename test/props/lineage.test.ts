@@ -25,7 +25,8 @@ describe("lineage", () => {
         if (played.outcome.kind !== "result") continue;
         for (const base of played.request.rows) {
           const answer = played.outcome.result.rows.get(base.row);
-          for (const [id, p] of Object.entries(answer?.providers ?? {})) {
+          if (!answer) continue;
+          for (const [id, p] of Object.entries(answer.providers)) {
             const provider = s.providers.find((x) => x.id === id);
             const route = s.routes.find((r) => r.base === base.entity && r.provider === id);
             const at = `${played.label}: ${base.row} › ${id}`;

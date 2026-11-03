@@ -1,7 +1,8 @@
-# Every push to main, every pull request and every release: the whole check on each supported Node, then the
-# build imported on Deno and Bun. The property tests run twice: from the fixed seed, which is the
-# same on every run, and from a random one, printed as `[props] HOPGRAPH_SEED=…` so that a failure
-# replays anywhere with `HOPGRAPH_SEED=<seed> npm run test:props`.
+# Every push to main, every pull request and every release: the whole check on Node 22 and 24 (vitest
+# needs 22.12), then the build imported on Node 20, Deno and Bun. The property tests run twice: from
+# the fixed seed, which is the same on every run, and from a random one, printed as
+# `[props] HOPGRAPH_SEED=…` so that a failure replays anywhere with
+# `HOPGRAPH_SEED=<seed> npm run test:props`.
 
 name: check
 
@@ -26,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [20, 22, 24]
+        node: [22, 24]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -53,6 +54,24 @@ jobs:
       - name: Public API against api/hopgraph.api.md
         run: npm run api
       - name: Smoke test of the build
+        run: npm run smoke
+
+  node20:
+    name: Node 20 (build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # the tests need vitest, which needs Node 22.12; the build is what consumers run, so it runs on 20
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+      - name: Smoke test of the build on Node 20
         run: npm run smoke
 
   runtimes:

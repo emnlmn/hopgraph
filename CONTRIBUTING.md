@@ -6,7 +6,7 @@ bar a change must meet, and how to write commits.
 
 ## Run the project
 
-Node 20 or later; `npm install` once.
+Node 22.12 or later (vitest 5 needs it; the library itself runs on Node 20); `npm install` once.
 
 | Command                 | Purpose                                                                                       |
 | ----------------------- | --------------------------------------------------------------------------------------------- |
@@ -28,8 +28,8 @@ Node 20 or later; `npm install` once.
 | `npm run docs:api`      | Write the API reference (`docs/api/`) from the last `api-extractor` run.                      |
 
 `bench`, `bench:latency` and the `example` scripts run TypeScript directly and need Node 22.18 or
-later. CI (`.github/workflows/check.yml`) runs the check on Node 20, 22 and 24, the property tests
-also from a random seed, and the smoke test on Deno and Bun.
+later. CI (`.github/workflows/check.yml`) runs the check on Node 22 and 24, the property tests
+also from a random seed, and the smoke test of the build on Node 20, Deno and Bun.
 
 ### Run and replay property tests
 
